@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as ImagePicker from 'expo-image-picker';
+import type { ImagePickerAsset } from 'expo-image-picker';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as ScreenCapture from 'expo-screen-capture';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
+import { ImageInput } from '@/components/ImageInput';
 import { EmptyState, Loading, Screen } from '@/components/ui';
 import { useUserId } from '@/lib/auth';
 import { offerVideoCallUpgrade, startVideoCall } from '@/lib/calls';
@@ -113,32 +114,10 @@ export default function Chat() {
     upsert(data as Message);
   }
 
-  function chooseSnap() {
-    showAlert('Send a snap', 'It disappears after one view (or 24 hours unopened).', [
-      { text: 'Take photo', onPress: () => sendSnap('camera') },
-      { text: 'Choose from library', onPress: () => sendSnap('library') },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }
-
-  async function sendSnap(source: 'camera' | 'library') {
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: 'images', quality: 0.7 };
-    let result: ImagePicker.ImagePickerResult;
-    if (source === 'camera') {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) {
-        showAlert('Camera access needed', 'Allow camera access in Settings to send snaps.');
-        return;
-      }
-      result = await ImagePicker.launchCameraAsync(options);
-    } else {
-      result = await ImagePicker.launchImageLibraryAsync(options);
-    }
-    if (result.canceled) return;
-
+  async function sendSnap(asset: ImagePickerAsset) {
     setUploadingSnap(true);
     try {
-      const path = await uploadImage('snaps', matchId, result.assets[0]);
+      const path = await uploadImage('snaps', matchId, asset);
       const { data, error } = await supabase
         .from('messages')
         .insert({ match_id: matchId, sender_id: userId, kind: 'snap', media_path: path })
@@ -222,9 +201,10 @@ export default function Chat() {
       />
 
       <View style={[styles.composer, { borderTopColor: t.border, paddingBottom: Math.max(insets.bottom, space.sm) }]}>
-        <Pressable
+        <ImageInput
+          source="choose"
           accessibilityLabel="Send a disappearing snap"
-          onPress={chooseSnap}
+          onPick={sendSnap}
           disabled={uploadingSnap}
           style={[styles.iconButton, { backgroundColor: t.surfaceRaised }]}
         >
@@ -233,7 +213,7 @@ export default function Chat() {
           ) : (
             <Ionicons name="camera" size={22} color={t.primary} />
           )}
-        </Pressable>
+        </ImageInput>
         <TextInput
           value={text}
           onChangeText={setText}

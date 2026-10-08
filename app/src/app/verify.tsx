@@ -1,7 +1,8 @@
-import * as ImagePicker from 'expo-image-picker';
+import type { ImagePickerAsset } from 'expo-image-picker';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ImageInput } from '@/components/ImageInput';
 import { Button, Card, Muted, Screen } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
 import { errorMessage, supabase } from '@/lib/supabase';
@@ -33,21 +34,10 @@ export default function Verify() {
       .then(({ data }) => setStatus((data?.status as Status | undefined) ?? 'none'));
   }, [userId]);
 
-  async function takeSelfie() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) {
-      showAlert('Camera access needed', 'Allow camera access in Settings to get verified.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: 'images',
-      cameraType: ImagePicker.CameraType.front,
-      quality: 0.7,
-    });
-    if (result.canceled) return;
+  async function sendSelfie(asset: ImagePickerAsset) {
     setBusy(true);
     try {
-      const path = await uploadImage('verifications', userId, result.assets[0]);
+      const path = await uploadImage('verifications', userId, asset);
       const { error } = await supabase.from('verification_requests').insert({ user_id: userId, selfie_path: path });
       if (error) throw error;
       setStatus('pending');
@@ -94,7 +84,17 @@ export default function Verify() {
                 We couldn’t match your last selfie to your photos. Please try again with good lighting.
               </Text>
             ) : null}
-            <Button title="Take selfie" onPress={takeSelfie} loading={busy} />
+            <ImageInput
+              source="camera"
+              cameraType="front"
+              onPick={sendSelfie}
+              disabled={busy}
+              accessibilityLabel="Take selfie"
+            >
+              <View pointerEvents="none">
+                <Button title="Take selfie" onPress={() => undefined} loading={busy} />
+              </View>
+            </ImageInput>
           </>
         )}
       </View>
