@@ -326,3 +326,20 @@ export function snapScene(): string {
 </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
+
+/** Stand-in photo for the demo when the viewer can't open a photo picker: the person's initial. */
+export function placeholderPhoto(initial: string, variant = 0): string {
+  const [c1, c2] = variant % 2 === 0 ? ['#3A0A14', '#0B0A0C'] : ['#0B0A0C', '#3A0A14'];
+  const letter = (initial || '?')
+    .slice(0, 1)
+    .toUpperCase()
+    .replace(/[<>&"']/g, '?');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>
+<rect width="400" height="500" fill="url(#g)"/>
+<circle cx="200" cy="220" r="110" fill="#FF2E4D" opacity="0.18"/>
+<text x="200" y="262" font-family="Helvetica, Arial, sans-serif" font-size="130" font-weight="700" fill="#fff" text-anchor="middle">${letter}</text>
+<text x="200" y="420" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#C9A3B6" text-anchor="middle">Photo placeholder (demo)</text>
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}

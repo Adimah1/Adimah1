@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { ageFrom } from '../format';
 import type { Gender } from '../types';
-import { DEMO_PEOPLE, DEMO_REPLIES, portrait, snapScene, type DemoPerson } from './data';
+import { DEMO_PEOPLE, DEMO_REPLIES, placeholderPhoto, portrait, snapScene, type DemoPerson } from './data';
 
 type Row = Record<string, any>;
 type Result = { data: any; error: { message: string } | null };
@@ -494,6 +494,10 @@ class DemoDb {
     const stored = this.files.get(path);
     if (stored) return stored;
     if (path.startsWith('demo-snap/')) return snapScene();
+    if (path.startsWith('demo-placeholder/')) {
+      const [, initial, n] = path.split('/');
+      return placeholderPhoto(decodeURIComponent(initial), Number(n));
+    }
     const [, owner, n] = path.split('/');
     const person = this.person(owner);
     return person ? portrait(person.look, Number(n)) : snapScene();
