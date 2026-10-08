@@ -4,10 +4,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Anton_400Regular } from '@expo-google-fonts/anton';
 import { InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
 import { useFonts } from 'expo-font';
-import { Platform, Pressable } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Platform, Pressable, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlertHost } from '@/components/AlertHost';
+import { IntroSplash } from '@/components/IntroSplash';
 import { EmptyState, Loading, Screen } from '@/components/ui';
 import { AuthProvider, useAuth } from '@/lib/auth';
 import { isSupabaseConfigured } from '@/lib/env';
@@ -15,7 +17,9 @@ import { useTheme } from '@/lib/theme';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular, Anton_400Regular });
-  if (!fontsLoaded) return <Loading />;
+  const [introDone, setIntroDone] = useState(false);
+  const finishIntro = useCallback(() => setIntroDone(true), []);
+  if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#0B0A0C' }} />;
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
@@ -23,6 +27,7 @@ export default function RootLayout() {
         <RootNavigator />
         <AlertHost />
       </AuthProvider>
+      {introDone ? null : <IntroSplash onDone={finishIntro} />}
     </SafeAreaProvider>
   );
 }
