@@ -1,7 +1,6 @@
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
 
-import { IS_DEMO } from './env';
 import { reportLocation } from './security';
 import { supabase } from './supabase';
 
@@ -20,14 +19,14 @@ export function formatWhen(iso: string): string {
 
 /** Turns a place name/address into coordinates for the venue check-in. */
 export async function locatePlace(query: string): Promise<{ lat: number; lng: number } | null> {
-  if (IS_DEMO || Platform.OS === 'web') return { lat: 40.741, lng: -73.9897 };
+  // Address lookup uses the phone's geocoder; it isn't available on the web.
+  if (Platform.OS === 'web') return null;
   const results = await Location.geocodeAsync(query);
   return results[0] ? { lat: results[0].latitude, lng: results[0].longitude } : null;
 }
 
 /** Current position for checking in, with the device's own mock-location flag. */
 export async function checkInPosition() {
-  if (IS_DEMO || Platform.OS === 'web') return { lat: 40.741, lng: -73.9897, mocked: false, accuracy: 10 };
   const permission = await Location.requestForegroundPermissionsAsync();
   if (permission.status !== 'granted') throw new Error('Location access is needed to check in.');
   const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });

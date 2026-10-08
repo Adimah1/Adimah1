@@ -20,7 +20,6 @@ import { NearbyCard } from '@/components/NearbyCard';
 import { ProfileTile } from '@/components/ProfileTile';
 import { Button, EmptyState, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { IS_DEMO } from '@/lib/env';
 import { lastLocationVerdict, useLocationSync } from '@/lib/location';
 import { usePlus } from '@/lib/purchases';
 import { errorMessage, supabase } from '@/lib/supabase';
@@ -184,7 +183,6 @@ export default function Nearby() {
               <View style={styles.section}>
                 <View style={styles.sectionHead}>
                   <SectionLabel lead="Active" tail="now" />
-                  {IS_DEMO ? <Text style={{ color: t.muted, fontSize: 12 }}>Demo · pretend people</Text> : null}
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
                   {active.map((p) => (

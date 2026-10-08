@@ -2,7 +2,6 @@ import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
-import { IS_DEMO } from './env';
 import { reportLocation, type LocationVerdict } from './security';
 
 export type LocationStatus = 'unknown' | 'granted' | 'denied';
@@ -38,7 +37,6 @@ export function useLocationSync(enabled: boolean) {
 }
 
 async function pushLocation(): Promise<LocationStatus> {
-  if (IS_DEMO) return 'granted';
   const permission = await Location.requestForegroundPermissionsAsync();
   if (permission.status !== 'granted') return 'denied';
   const position = await Location.getCurrentPositionAsync({

@@ -11,7 +11,4 @@ export const REVENUECAT_KEY =
 
 export const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
-/** Demo mode: an in-memory backend with pretend people, for previewing the app. */
-export const IS_DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
-
-export const isSupabaseConfigured = IS_DEMO || (SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0);
+export const isSupabaseConfigured = SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;

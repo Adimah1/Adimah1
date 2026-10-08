@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IS_DEMO } from '@/lib/env';
 import { photoUrl } from '@/lib/supabase';
 
 import { CallButton } from './CallButton';
@@ -12,7 +11,7 @@ import type { VideoRoomProps } from './VideoRoom.types';
 
 /**
  * Browser version. Live video runs in the iOS/Android app (VideoRoom.native);
- * here the demo shows a simulated call so the flow can be tried.
+ * on the web the call screen explains that.
  */
 export function VideoRoom({ otherName, otherPhoto, onHangUp }: VideoRoomProps) {
   const insets = useSafeAreaInsets();
@@ -37,11 +36,7 @@ export function VideoRoom({ otherName, otherPhoto, onHangUp }: VideoRoomProps) {
       <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.name}>{otherName}</Text>
         <Text style={styles.clock}>{clock}</Text>
-        <Text style={styles.note}>
-          {IS_DEMO
-            ? 'Demo call — real calls use live video in the app'
-            : 'Video calls work in the LushDate iOS and Android app.'}
-        </Text>
+        <Text style={styles.note}>Video calls work in the LushDate iOS and Android app.</Text>
       </View>
 
       <View style={[styles.self, { top: insets.top + 12 }]}>

@@ -20,7 +20,6 @@ import { Glass } from '@/components/Glass';
 import { Button, Field } from '@/components/ui';
 import { ChatPreview, PhotoFan, SafetyPreview } from '@/components/WelcomeArt';
 import { showAlert } from '@/lib/alert';
-import { IS_DEMO } from '@/lib/env';
 import { toE164 } from '@/lib/format';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
@@ -213,15 +212,6 @@ export default function SignIn() {
                     <Button title="Continue" onPress={verify} loading={busy} disabled={code.trim().length < 6} />
                   </>
                 )}
-                {IS_DEMO ? (
-                  <View style={styles.demo}>
-                    <Ionicons name="sparkles" size={16} color="#FFC56E" />
-                    <Text style={styles.demoText}>
-                      Demo: any phone number works and the code is <Text style={{ fontWeight: '800' }}>123456</Text>.
-                      Everyone you meet is pretend.
-                    </Text>
-                  </View>
-                ) : null}
                 <Text style={styles.fine}>
                   LushDate is for adults 18+. By continuing you agree to our Terms and Privacy Policy.
                 </Text>
@@ -262,15 +252,5 @@ const styles = StyleSheet.create({
   sheetInner: { padding: 22, gap: 14 },
   sheetTitle: { color: '#fff', fontFamily: fonts.serif, fontSize: 36, lineHeight: 40 },
   sheetBody: { color: 'rgba(255,255,255,0.65)', fontSize: 15, lineHeight: 21, marginTop: -6 },
-  demo: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: 'rgba(255,197,110,0.1)',
-    borderColor: 'rgba(255,197,110,0.45)',
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-  },
-  demoText: { flex: 1, color: '#F5DDB5', fontSize: 13, lineHeight: 18 },
   fine: { color: 'rgba(255,255,255,0.45)', fontSize: 11, textAlign: 'center', lineHeight: 16 },
 });

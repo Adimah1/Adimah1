@@ -1,11 +1,8 @@
-import { IS_DEMO } from './env';
-
-/** Card payments run in the iOS/Android app (Stripe); the web demo simulates them. */
-export const depositsAvailable = IS_DEMO;
+/** Card payments (Stripe) run in the iOS/Android app; see payments.native.ts. */
+export const depositsAvailable = false;
 
 export type PaymentResult = { ok: true } | { ok: false; cancelled: boolean; message: string };
 
-export async function confirmDepositHold(clientSecret: string): Promise<PaymentResult> {
-  if (IS_DEMO || clientSecret === 'demo') return { ok: true };
-  return { ok: false, cancelled: false, message: 'Deposits are available in the LushDate app.' };
+export async function confirmDepositHold(_clientSecret: string): Promise<PaymentResult> {
+  return { ok: false, cancelled: false, message: 'Deposits are available in the LushDate iPhone and Android app.' };
 }

@@ -9,7 +9,6 @@ import { TAB_BAR_SPACE } from '@/components/GlassTabBar';
 import { PillButton, ProfileHero } from '@/components/ProfileHero';
 import { Button } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
-import { IS_DEMO } from '@/lib/env';
 import { ageFrom } from '@/lib/format';
 import {
   BOOST_OFFERING,
@@ -79,14 +78,6 @@ export default function Me() {
   }
 
   async function boost() {
-    if (IS_DEMO) {
-      setBoosting(true);
-      await supabase.rpc('grant_boost', { p_user: userId, p_transaction_id: 'demo', p_minutes: 30 });
-      await loadBoost();
-      setBoosting(false);
-      showAlert('Boost active ⚡', 'You’re at the top of Nearby for 30 minutes. (Demo: no charge.)');
-      return;
-    }
     if (!purchasesAvailable) {
       showAlert('Boosts unavailable', 'Purchases aren’t available in this build.');
       return;

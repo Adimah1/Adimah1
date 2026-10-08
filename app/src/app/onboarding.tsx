@@ -4,7 +4,6 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { MAX_PHOTOS, PhotoEditor } from '@/components/PhotoEditor';
 import { Button, Chip, Field, Muted, Screen, Title } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
-import { IS_DEMO } from '@/lib/env';
 import { ageFrom, parseBirthdate } from '@/lib/format';
 import { useLocationSync } from '@/lib/location';
 import { errorMessage, supabase } from '@/lib/supabase';
@@ -191,23 +190,6 @@ export default function Onboarding() {
                 are removed automatically.
               </Muted>
               <PhotoEditor userId={userId} photos={photos} onChange={setPhotos} />
-              {IS_DEMO ? (
-                <View style={[styles.demoHelp, { borderColor: t.border }]}>
-                  <Muted>
-                    Tap the + box to choose a photo. If nothing opens, the app you’re viewing this link in may not allow
-                    photo access — you can still try the rest of the demo.
-                  </Muted>
-                  <Button
-                    title="Continue with a placeholder (demo only)"
-                    variant="secondary"
-                    onPress={() => {
-                      const initial = encodeURIComponent(name.trim().slice(0, 1) || 'L');
-                      setPhotos([`demo-placeholder/${initial}/0`, `demo-placeholder/${initial}/1`]);
-                      setStep('location');
-                    }}
-                  />
-                </View>
-              ) : null}
             </>
           )}
 
@@ -241,7 +223,6 @@ export default function Onboarding() {
 }
 
 const styles = StyleSheet.create({
-  demoHelp: { gap: space.sm, borderTopWidth: 1, paddingTop: space.md, marginTop: space.sm },
   progress: { flexDirection: 'row', gap: 6, paddingHorizontal: space.lg, paddingTop: space.md },
   dot: { flex: 1, height: 4, borderRadius: 2 },
   body: { padding: space.lg, gap: space.md },

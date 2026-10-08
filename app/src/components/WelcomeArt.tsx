@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 
-import { DEMO_PEOPLE, portrait } from '@/lib/demo/data';
+import { ILLUSTRATED_PEOPLE, portrait } from '@/lib/illustrations';
 import { fonts } from '@/lib/theme';
 
 import { Glass } from './Glass';
@@ -30,9 +30,9 @@ function useFloat(delay = 0, distance = 8) {
 }
 
 const FAN = [
-  { person: DEMO_PEOPLE[5], rotate: '-12deg', x: -96, y: 18, chip: '2 mi' },
-  { person: DEMO_PEOPLE[1], rotate: '10deg', x: 96, y: 26, chip: '<1 mi' },
-  { person: DEMO_PEOPLE[0], rotate: '0deg', x: 0, y: 0, chip: 'NOW' },
+  { person: ILLUSTRATED_PEOPLE[2], rotate: '-12deg', x: -96, y: 18, chip: '2 mi' },
+  { person: ILLUSTRATED_PEOPLE[1], rotate: '10deg', x: 96, y: 26, chip: '<1 mi' },
+  { person: ILLUSTRATED_PEOPLE[0], rotate: '0deg', x: 0, y: 0, chip: 'NOW' },
 ];
 
 /** Slide 1: a fanned stack of profile cards with a floating like. */
@@ -47,7 +47,7 @@ export function PhotoFan({ scale = 1 }: { scale?: number }) {
       </View>
       {FAN.map((c, i) => (
         <Animated.View
-          key={c.person.id}
+          key={c.person.name}
           style={[
             styles.fanCard,
             {
@@ -64,7 +64,7 @@ export function PhotoFan({ scale = 1 }: { scale?: number }) {
         >
           <Image source={{ uri: portrait(c.person.look) }} style={StyleSheet.absoluteFill} contentFit="cover" />
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.fanShade} />
-          <Text style={[styles.fanName, { fontSize: 22 * scale }]}>{c.person.display_name.toUpperCase()}</Text>
+          <Text style={[styles.fanName, { fontSize: 22 * scale }]}>{c.person.name.toUpperCase()}</Text>
           <View style={[styles.fanChip, c.chip === 'NOW' ? { backgroundColor: '#FF5A1F' } : null]}>
             <Text style={styles.fanChipText}>{c.chip}</Text>
           </View>
@@ -91,7 +91,11 @@ export function ChatPreview() {
       <Glass radius={28} intensity={50} style={styles.chatCard}>
         <View style={styles.chatInner}>
           <View style={styles.chatHead}>
-            <Image source={{ uri: portrait(DEMO_PEOPLE[0].look) }} style={styles.chatAvatar} contentFit="cover" />
+            <Image
+              source={{ uri: portrait(ILLUSTRATED_PEOPLE[0].look) }}
+              style={styles.chatAvatar}
+              contentFit="cover"
+            />
             <Text style={styles.chatName}>Maya</Text>
             <View style={styles.online} />
             <View style={{ flex: 1 }} />

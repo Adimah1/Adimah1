@@ -1,22 +1,23 @@
 import 'react-native-url-polyfill/auto';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
-import { createDemoClient } from './demo/client';
-import { IS_DEMO, SUPABASE_ANON_KEY, SUPABASE_URL } from './env';
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from './env';
 
-export const supabase: SupabaseClient = IS_DEMO
-  ? createDemoClient()
-  : createClient(SUPABASE_URL || 'http://localhost:54321', SUPABASE_ANON_KEY || 'missing-anon-key', {
-      auth: {
-        storage: AsyncStorage,
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false,
-      },
-    });
+export const supabase = createClient(
+  SUPABASE_URL || 'http://localhost:54321',
+  SUPABASE_ANON_KEY || 'missing-anon-key',
+  {
+    auth: {
+      storage: AsyncStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false,
+    },
+  },
+);
 
 // Only refresh the session while the app is in the foreground.
 if (Platform.OS !== 'web') {

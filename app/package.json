@@ -60,8 +60,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "build:demo": "EXPO_PUBLIC_DEMO=1 expo export --clear --platform web --output-dir dist-demo && node scripts/build-demo-page.js dist-demo dist-demo/lushdate-demo.html"
+    "test": "jest"
   },
   "private": true,
   "jest": {
