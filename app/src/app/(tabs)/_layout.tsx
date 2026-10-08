@@ -1,25 +1,16 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { Tabs } from 'expo-router/js-tabs';
 import { useEffect } from 'react';
-import { Platform, type ColorValue } from 'react-native';
+import { Platform } from 'react-native';
 
+import { GlassTabBar } from '@/components/GlassTabBar';
 import { useUserId } from '@/lib/auth';
 import { useLocationSync } from '@/lib/location';
 import { configurePurchases } from '@/lib/purchases';
 import { registerForPush } from '@/lib/push';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-
-type IconName = keyof typeof Ionicons.glyphMap;
-
-function icon(name: IconName, focusedName: IconName) {
-  function TabIcon({ color, focused, size }: { color: ColorValue; focused: boolean; size: number }) {
-    return <Ionicons name={focused ? focusedName : name} color={color as string} size={size} />;
-  }
-  return TabIcon;
-}
 
 export default function TabsLayout() {
   const t = useTheme();
@@ -62,18 +53,13 @@ export default function TabsLayout() {
 
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: t.primary,
-        tabBarInactiveTintColor: t.muted,
-        tabBarStyle: { backgroundColor: t.background, borderTopColor: t.border },
-        sceneStyle: { backgroundColor: t.background },
-      }}
+      tabBar={(props) => <GlassTabBar {...props} />}
+      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: t.background } }}
     >
-      <Tabs.Screen name="index" options={{ title: 'Nearby', tabBarIcon: icon('location-outline', 'location') }} />
-      <Tabs.Screen name="likes" options={{ title: 'Likes', tabBarIcon: icon('heart-outline', 'heart') }} />
-      <Tabs.Screen name="chats" options={{ title: 'Chats', tabBarIcon: icon('chatbubbles-outline', 'chatbubbles') }} />
-      <Tabs.Screen name="me" options={{ title: 'Me', tabBarIcon: icon('person-circle-outline', 'person-circle') }} />
+      <Tabs.Screen name="index" options={{ title: 'Nearby' }} />
+      <Tabs.Screen name="likes" options={{ title: 'Likes' }} />
+      <Tabs.Screen name="chats" options={{ title: 'Chats' }} />
+      <Tabs.Screen name="me" options={{ title: 'Me' }} />
     </Tabs>
   );
 }

@@ -1,7 +1,10 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Platform, Pressable, useColorScheme } from 'react-native';
+import { Anton_400Regular } from '@expo-google-fonts/anton';
+import { InstrumentSerif_400Regular } from '@expo-google-fonts/instrument-serif';
+import { useFonts } from 'expo-font';
+import { Platform, Pressable } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AlertHost } from '@/components/AlertHost';
@@ -11,10 +14,11 @@ import { isSupabaseConfigured } from '@/lib/env';
 import { useTheme } from '@/lib/theme';
 
 export default function RootLayout() {
-  const scheme = useColorScheme();
+  const [fontsLoaded] = useFonts({ InstrumentSerif_400Regular, Anton_400Regular });
+  if (!fontsLoaded) return <Loading />;
   return (
     <SafeAreaProvider>
-      <StatusBar style={scheme === 'light' ? 'dark' : 'light'} />
+      <StatusBar style="light" />
       <AuthProvider>
         <RootNavigator />
         <AlertHost />
@@ -72,7 +76,7 @@ function RootNavigator() {
 
       <Stack.Protected guard={onboarded}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="profile/[id]" options={{ title: '' }} />
+        <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[matchId]" options={{ title: '' }} />
         <Stack.Screen
           name="snap/[messageId]"

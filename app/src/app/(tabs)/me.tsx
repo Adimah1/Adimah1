@@ -1,11 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import Purchases from 'react-native-purchases';
 
-import { Avatar } from '@/components/Avatar';
-import { Button, Card, Screen } from '@/components/ui';
+import { Glass } from '@/components/Glass';
+import { TAB_BAR_SPACE } from '@/components/GlassTabBar';
+import { PillButton, ProfileHero } from '@/components/ProfileHero';
+import { Button } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
 import { IS_DEMO } from '@/lib/env';
 import { ageFrom } from '@/lib/format';
@@ -19,7 +21,8 @@ import {
 } from '@/lib/purchases';
 import { unregisterPush } from '@/lib/push';
 import { errorMessage, supabase } from '@/lib/supabase';
-import { radius, space, useTheme } from '@/lib/theme';
+import { space, useTheme } from '@/lib/theme';
+import { LOOKING_FOR_LABELS } from '@/lib/types';
 import { showAlert } from '@/lib/alert';
 
 export default function Me() {
@@ -29,6 +32,7 @@ export default function Me() {
   const { isPlus, refresh: refreshPlus } = usePlus(userId);
   const [boostMinutesLeft, setBoostMinutesLeft] = useState<number | null>(null);
   const [boosting, setBoosting] = useState(false);
+  const [counts, setCounts] = useState({ likes: 0, matches: 0 });
 
   const loadBoost = useCallback(async () => {
     const { data } = await supabase
@@ -50,6 +54,12 @@ export default function Me() {
     useCallback(() => {
       refreshPlus();
       loadBoost();
+      Promise.all([supabase.rpc('likes_received_count'), supabase.rpc('my_matches')]).then(([likes, matches]) =>
+        setCounts({
+          likes: (likes.data as number | null) ?? 0,
+          matches: ((matches.data as unknown[] | null) ?? []).length,
+        }),
+      );
     }, [refreshPlus, loadBoost]),
   );
 
@@ -128,74 +138,88 @@ export default function Me() {
     );
   }
 
+  const handle = `@${profile.display_name.toLowerCase().replace(/\s+/g, '')}`;
+
   return (
-    <Screen edges={['top']}>
-      <ScrollView contentContainerStyle={styles.body}>
-        <View style={styles.header}>
-          <Avatar path={profile.photos[0] ?? null} size={96} ring={isPlus ? t.accent : t.primary} />
-          <View style={styles.nameRow}>
-            <Text style={[styles.name, { color: t.text }]}>
-              {profile.display_name}, {ageFrom(profile.birthdate)}
-            </Text>
-            {profile.verified ? <Ionicons name="checkmark-circle" size={22} color="#6CC4FF" /> : null}
-          </View>
-          {isPlus ? <Text style={{ color: t.accent, fontWeight: '800' }}>💎 LushDate+</Text> : null}
-          <View style={{ flexDirection: 'row', gap: space.sm }}>
-            <Button title="Edit profile" variant="secondary" onPress={() => router.push('/edit-profile')} />
-            {!profile.verified ? (
-              <Button title="Get verified" variant="secondary" onPress={() => router.push('/verify')} />
-            ) : null}
-          </View>
+    <ProfileHero
+      photos={profile.photos}
+      name={profile.display_name}
+      subtitle={`${handle} · ${ageFrom(profile.birthdate)} · ${isPlus ? '💎 LushDate+' : 'Free plan'}`}
+      verified={profile.verified}
+      bio={profile.bio}
+      title={handle}
+      stats={[
+        { value: String(counts.likes), label: 'Likes' },
+        { value: String(counts.matches), label: 'Matches' },
+        { value: String(profile.photos.length), label: 'Photos' },
+      ]}
+      tags={[
+        `#${LOOKING_FOR_LABELS[profile.looking_for].toLowerCase().replace(/\s+/g, '')}`,
+        ...(profile.verified ? ['#verified'] : []),
+      ]}
+      right={<PillButton label="Edit Profile" onPress={() => router.push('/edit-profile')} />}
+      bottomSpace={TAB_BAR_SPACE}
+    >
+      {!profile.verified ? (
+        <Pressable onPress={() => router.push('/verify')}>
+          <Glass style={styles.cardRow}>
+            <Ionicons name="shield-checkmark" size={26} color="#6CC4FF" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Get verified</Text>
+              <Text style={styles.cardBody}>Take a quick selfie to earn the check mark.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={t.muted} />
+          </Glass>
+        </Pressable>
+      ) : null}
+
+      {!isPlus ? (
+        <Pressable onPress={() => router.push('/paywall')}>
+          <Glass style={[styles.cardRow, { borderColor: t.primary }]}>
+            <Text style={{ fontSize: 26 }}>💎</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Get LushDate+</Text>
+              <Text style={styles.cardBody}>Video calls, see who likes you, browse the whole city, go incognito.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={t.muted} />
+          </Glass>
+        </Pressable>
+      ) : null}
+
+      <Glass style={styles.cardRow}>
+        <Text style={{ fontSize: 26 }}>⚡</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>
+            {boostMinutesLeft !== null ? `Boost active · ${boostMinutesLeft} min left` : 'Boost'}
+          </Text>
+          <Text style={styles.cardBody}>Be first in everyone’s Nearby feed for 30 minutes.</Text>
         </View>
+        {boostMinutesLeft === null ? <Button title="Boost" onPress={boost} loading={boosting} /> : null}
+      </Glass>
 
-        {!isPlus ? (
-          <Pressable onPress={() => router.push('/paywall')}>
-            <Card style={[styles.promo, { borderColor: t.primary }]}>
-              <Text style={{ fontSize: 28 }}>💎</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: t.text, fontWeight: '800', fontSize: 16 }}>Get LushDate+</Text>
-                <Text style={{ color: t.muted }}>See who likes you, browse the whole city, go incognito.</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={t.muted} />
-            </Card>
-          </Pressable>
-        ) : null}
+      <Glass style={styles.card}>
+        <Toggle
+          label="Pause my profile"
+          hint="Hide from Nearby. Existing matches can still message you."
+          value={profile.is_paused}
+          onChange={(v) => setFlag('is_paused', v)}
+        />
+        <View style={[styles.divider, { backgroundColor: t.glassBorder }]} />
+        <Toggle
+          label="Incognito"
+          hint={isPlus ? 'Only people you like can see you.' : 'LushDate+ feature.'}
+          value={profile.incognito && isPlus}
+          onChange={(v) => setFlag('incognito', v)}
+        />
+      </Glass>
 
-        <Card style={styles.promo}>
-          <Text style={{ fontSize: 28 }}>⚡</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: t.text, fontWeight: '800', fontSize: 16 }}>
-              {boostMinutesLeft !== null ? `Boost active · ${boostMinutesLeft} min left` : 'Boost'}
-            </Text>
-            <Text style={{ color: t.muted }}>Be first in everyone’s Nearby feed for 30 minutes.</Text>
-          </View>
-          {boostMinutesLeft === null ? <Button title="Boost" onPress={boost} loading={boosting} /> : null}
-        </Card>
+      <Glass>
+        <Row icon="shield-checkmark" label="Safety & blocked users" onPress={() => router.push('/safety')} />
+      </Glass>
 
-        <Card style={{ gap: space.md }}>
-          <Toggle
-            label="Pause my profile"
-            hint="Hide from Nearby. Existing matches can still message you."
-            value={profile.is_paused}
-            onChange={(v) => setFlag('is_paused', v)}
-          />
-          <View style={[styles.divider, { backgroundColor: t.border }]} />
-          <Toggle
-            label="Incognito"
-            hint={isPlus ? 'Only people you like can see you.' : 'LushDate+ feature.'}
-            value={profile.incognito && isPlus}
-            onChange={(v) => setFlag('incognito', v)}
-          />
-        </Card>
-
-        <Card style={{ padding: 0 }}>
-          <Row icon="shield-checkmark" label="Safety & blocked users" onPress={() => router.push('/safety')} />
-        </Card>
-
-        <Button title="Sign out" variant="secondary" onPress={doSignOut} />
-        <Button title="Delete account" variant="ghost" onPress={deleteAccount} />
-      </ScrollView>
-    </Screen>
+      <Button title="Sign out" variant="secondary" onPress={doSignOut} />
+      <Button title="Delete account" variant="ghost" onPress={deleteAccount} />
+    </ProfileHero>
   );
 }
 
@@ -234,11 +258,10 @@ function Row({ icon, label, onPress }: { icon: keyof typeof Ionicons.glyphMap; l
 }
 
 const styles = StyleSheet.create({
-  body: { padding: space.lg, gap: space.md },
-  header: { alignItems: 'center', gap: space.sm, marginBottom: space.sm },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  name: { fontSize: 26, fontWeight: '900' },
-  promo: { flexDirection: 'row', alignItems: 'center', gap: space.md, borderRadius: radius.md },
+  card: { padding: space.md, gap: space.md },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md },
+  cardTitle: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  cardBody: { color: 'rgba(255,255,255,0.65)', fontSize: 14, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
   toggle: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.md },

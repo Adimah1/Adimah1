@@ -1,19 +1,35 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, Linking, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  FlatList,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
+import { Avatar } from '@/components/Avatar';
+import { SectionLabel, Wordmark } from '@/components/Brand';
+import { TAB_BAR_SPACE } from '@/components/GlassTabBar';
+import { NearbyCard } from '@/components/NearbyCard';
 import { ProfileTile } from '@/components/ProfileTile';
-import { Button, Chip, EmptyState, Screen } from '@/components/ui';
+import { Button, EmptyState, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { IS_DEMO } from '@/lib/env';
-import { distanceLabel } from '@/lib/format';
 import { useLocationSync } from '@/lib/location';
 import { usePlus } from '@/lib/purchases';
 import { errorMessage, supabase } from '@/lib/supabase';
+import { swipeOn } from '@/lib/swipe';
 import { space, useTheme } from '@/lib/theme';
 import type { NearbyProfile } from '@/lib/types';
 
 const FREE_RADIUS = 5;
+const FEATURED = 6;
 const RADII = [
   { miles: 1, label: '1 mi' },
   { miles: 5, label: '5 mi' },
@@ -24,11 +40,13 @@ const RADII = [
 
 export default function Nearby() {
   const t = useTheme();
+  const { width } = useWindowDimensions();
   const { profile, session } = useAuth();
   const { isPlus, refresh: refreshPlus } = usePlus(session?.user.id);
   const { status, sync } = useLocationSync(false);
   const [radius, setRadius] = useState(FREE_RADIUS);
   const [people, setPeople] = useState<NearbyProfile[]>([]);
+  const [likeCount, setLikeCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +55,12 @@ export default function Nearby() {
       setLoading(true);
       setError(null);
       await sync().catch(() => false);
-      const { data, error: rpcError } = await supabase.rpc('nearby_profiles', { radius_mi: miles });
+      const [{ data, error: rpcError }, { data: likes }] = await Promise.all([
+        supabase.rpc('nearby_profiles', { radius_mi: miles }),
+        supabase.rpc('likes_received_count'),
+      ]);
       setLoading(false);
+      setLikeCount((likes as number | null) ?? 0);
       if (rpcError) {
         setError(errorMessage(rpcError));
         return;
@@ -63,7 +85,21 @@ export default function Nearby() {
     setRadius(miles);
   }
 
-  let empty;
+  const open = (id: string) => {
+    const dist = people.find((p) => p.id === id)?.distance_mi;
+    router.push({ pathname: '/profile/[id]', params: dist === undefined ? { id } : { id, dist: String(dist) } });
+  };
+  const like = (p: NearbyProfile) =>
+    swipeOn(p, true, () => undefined).then((ok) => {
+      if (ok) setPeople((cur) => cur.filter((x) => x.id !== p.id));
+    });
+
+  const active = people.filter((p) => p.active_now);
+  const featured = people.slice(0, FEATURED);
+  const rest = people.slice(FEATURED);
+  const cardWidth = Math.min(width * 0.68, 300);
+
+  let empty = null;
   if (status === 'denied') {
     empty = (
       <EmptyState
@@ -91,7 +127,7 @@ export default function Nearby() {
         action={<Button title="Try again" onPress={() => load(radius)} />}
       />
     );
-  } else if (!loading) {
+  } else if (!loading && people.length === 0) {
     empty = (
       <EmptyState
         emoji="🌙"
@@ -107,44 +143,122 @@ export default function Nearby() {
 
   return (
     <Screen edges={['top']}>
-      <View style={styles.header}>
-        <Text style={[styles.heading, { color: t.text }]}>Nearby</Text>
-        <Text style={{ color: t.muted }}>
-          {IS_DEMO ? 'Demo · ' : ''}
-          {people.filter((p) => p.active_now).length} active now
-        </Text>
-      </View>
       <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.radii}
-        style={{ flexGrow: 0 }}
-      >
-        {RADII.map((r) => (
-          <Chip key={r.miles} label={r.label} selected={radius === r.miles} onPress={() => pickRadius(r.miles)} />
-        ))}
-      </ScrollView>
-
-      <FlatList
-        data={people}
-        keyExtractor={(p) => p.id}
-        numColumns={2}
-        contentContainerStyle={[styles.grid, people.length === 0 && { flex: 1 }]}
+        contentContainerStyle={{ paddingBottom: TAB_BAR_SPACE, flexGrow: 1 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => load(radius)} tintColor={t.primary} />}
-        ListEmptyComponent={empty}
-        renderItem={({ item }) => (
-          <ProfileTile
-            name={item.display_name}
-            age={item.age}
-            photo={item.photos[0]}
-            verified={item.verified}
-            subtitle={distanceLabel(item.distance_mi)}
-            activeNow={item.active_now}
-            boosted={item.boosted}
-            onPress={() => router.push({ pathname: '/profile/[id]', params: { id: item.id } })}
-          />
+      >
+        <View style={styles.header}>
+          <Wordmark />
+          <View style={styles.headerRight}>
+            <Pressable
+              accessibilityLabel={`Likes, ${likeCount} new`}
+              hitSlop={10}
+              onPress={() => router.navigate('/likes')}
+            >
+              <Ionicons name="notifications-outline" size={26} color={t.text} />
+              {likeCount > 0 ? (
+                <View style={[styles.bellDot, { backgroundColor: t.primary, borderColor: t.background }]} />
+              ) : null}
+            </Pressable>
+            <Pressable accessibilityLabel="My profile" onPress={() => router.navigate('/me')}>
+              <Avatar path={profile?.photos[0] ?? null} size={46} shape="square" />
+            </Pressable>
+          </View>
+        </View>
+
+        {empty ? (
+          <View style={{ flex: 1 }}>{empty}</View>
+        ) : (
+          <>
+            {active.length > 0 ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHead}>
+                  <SectionLabel lead="Active" tail="now" />
+                  {IS_DEMO ? <Text style={{ color: t.muted, fontSize: 12 }}>Demo · pretend people</Text> : null}
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+                  {active.map((p) => (
+                    <Pressable
+                      key={p.id}
+                      accessibilityLabel={`${p.display_name}, active now`}
+                      onPress={() => open(p.id)}
+                    >
+                      <Avatar path={p.photos[0] ?? null} size={60} shape="square" online />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : null}
+
+            <View style={styles.section}>
+              <View style={styles.sectionHead}>
+                <SectionLabel lead="Near" tail="you" />
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.radii}>
+                {RADII.map((r) => {
+                  const selected = radius === r.miles;
+                  const locked = r.miles > FREE_RADIUS && !isPlus;
+                  return (
+                    <Pressable
+                      key={r.miles}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => pickRadius(r.miles)}
+                      style={[
+                        styles.radius,
+                        {
+                          backgroundColor: selected ? t.text : t.glass,
+                          borderColor: selected ? t.text : t.glassBorder,
+                        },
+                      ]}
+                    >
+                      {locked ? <Ionicons name="lock-closed" size={11} color={t.muted} /> : null}
+                      <Text style={{ color: selected ? t.background : t.text, fontWeight: '700', fontSize: 13 }}>
+                        {r.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <FlatList
+                horizontal
+                data={featured}
+                keyExtractor={(p) => p.id}
+                showsHorizontalScrollIndicator={false}
+                snapToInterval={cardWidth + 14}
+                decelerationRate="fast"
+                contentContainerStyle={styles.rail}
+                ItemSeparatorComponent={() => <View style={{ width: 14 }} />}
+                renderItem={({ item }) => (
+                  <NearbyCard person={item} width={cardWidth} onPress={() => open(item.id)} onLike={() => like(item)} />
+                )}
+              />
+            </View>
+
+            {rest.length > 0 ? (
+              <View style={styles.section}>
+                <View style={styles.sectionHead}>
+                  <SectionLabel lead="More" tail="nearby" />
+                </View>
+                <View style={styles.grid}>
+                  {rest.map((p) => (
+                    <ProfileTile
+                      key={p.id}
+                      name={p.display_name}
+                      age={p.age}
+                      photo={p.photos[0]}
+                      verified={p.verified}
+                      activeNow={p.active_now}
+                      badge={`${p.distance_mi <= 1 ? '<1' : p.distance_mi} mi`}
+                      onPress={() => open(p.id)}
+                    />
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </>
         )}
-      />
+      </ScrollView>
     </Screen>
   );
 }
@@ -152,12 +266,31 @@ export default function Nearby() {
 const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: space.md,
+    paddingHorizontal: space.lg,
     paddingTop: space.sm,
+    paddingBottom: space.md,
   },
-  heading: { fontSize: 32, fontWeight: '900', letterSpacing: -0.8 },
-  radii: { gap: space.sm, paddingHorizontal: space.md, paddingVertical: space.md },
-  grid: { paddingHorizontal: space.xs, paddingBottom: space.lg },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 18 },
+  bellDot: { position: 'absolute', top: 1, right: 1, width: 10, height: 10, borderRadius: 5, borderWidth: 2 },
+  section: { marginTop: space.md, gap: 12 },
+  sectionHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: space.lg,
+  },
+  rail: { paddingHorizontal: space.lg, gap: 12 },
+  radii: { paddingHorizontal: space.lg, gap: 8 },
+  radius: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: space.lg - 6 },
 });

@@ -4,17 +4,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { photoUrl } from '@/lib/supabase';
-import { radius, space, useTheme } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
-/** A photo tile for the Nearby and Likes grids. */
+/** A tall photo tile for two-column grids (More nearby, Likes). */
 export function ProfileTile({
   name,
   age,
   photo,
   verified,
-  subtitle,
+  badge,
   activeNow,
-  boosted,
   blurred,
   onPress,
 }: {
@@ -22,9 +21,9 @@ export function ProfileTile({
   age: number;
   photo: string | undefined;
   verified: boolean;
-  subtitle?: string;
+  /** Short pill text in the top corner, e.g. "2 mi". */
+  badge?: string;
   activeNow?: boolean;
-  boosted?: boolean;
   blurred?: boolean;
   onPress?: () => void;
 }) {
@@ -35,8 +34,8 @@ export function ProfileTile({
         onPress={onPress}
         disabled={!onPress}
         accessibilityRole="button"
-        accessibilityLabel={blurred ? 'Hidden profile' : `${name}, ${age}${subtitle ? `, ${subtitle}` : ''}`}
-        style={({ pressed }) => [styles.tile, { backgroundColor: t.surface, opacity: pressed ? 0.85 : 1 }]}
+        accessibilityLabel={blurred ? 'Hidden profile' : `${name}, ${age}`}
+        style={({ pressed }) => [styles.tile, { backgroundColor: t.surface, opacity: pressed ? 0.88 : 1 }]}
       >
         {photo ? (
           <Image
@@ -47,31 +46,25 @@ export function ProfileTile({
             transition={150}
           />
         ) : null}
-        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.shade} />
+        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.shade} />
 
-        <View style={styles.badges}>
-          {boosted ? (
-            <View style={[styles.pill, { backgroundColor: t.accent }]}>
-              <Ionicons name="flash" size={12} color="#2A0A1F" />
-            </View>
-          ) : null}
-          {activeNow ? (
-            <View style={[styles.pill, { backgroundColor: 'rgba(0,0,0,0.55)' }]}>
-              <View style={[styles.online, { backgroundColor: t.success }]} />
-              <Text style={styles.pillText}>Now</Text>
-            </View>
-          ) : null}
-        </View>
+        {badge && !blurred ? (
+          <View style={[styles.badge, { backgroundColor: t.info }]}>
+            <Text style={styles.badgeText}>{badge}</Text>
+          </View>
+        ) : null}
 
-        {blurred ? null : (
+        {blurred ? (
+          <View style={styles.lock}>
+            <Ionicons name="lock-closed" size={22} color="#fff" />
+          </View>
+        ) : (
           <View style={styles.caption}>
-            <View style={styles.nameRow}>
-              <Text style={styles.name} numberOfLines={1}>
-                {name}, {age}
-              </Text>
-              {verified ? <Ionicons name="checkmark-circle" size={16} color="#6CC4FF" /> : null}
-            </View>
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            {activeNow ? <View style={[styles.online, { backgroundColor: t.success }]} /> : null}
+            <Text style={styles.name} numberOfLines={1}>
+              {name}, {age}
+            </Text>
+            {verified ? <Ionicons name="checkmark-circle" size={15} color="#6CC4FF" /> : null}
           </View>
         )}
       </Pressable>
@@ -80,22 +73,21 @@ export function ProfileTile({
 }
 
 const styles = StyleSheet.create({
-  cell: { width: '50%', padding: space.xs },
-  tile: { aspectRatio: 3 / 4, borderRadius: radius.md, overflow: 'hidden' },
+  cell: { width: '50%', padding: 6 },
+  tile: { aspectRatio: 3 / 4.2, borderRadius: 24, overflow: 'hidden' },
   shade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '45%' },
-  badges: { position: 'absolute', top: space.sm, left: space.sm, right: space.sm, flexDirection: 'row', gap: 6 },
-  pill: {
+  badge: { position: 'absolute', top: 10, left: 10, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  caption: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    bottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: 6,
   },
-  pillText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  online: { width: 7, height: 7, borderRadius: 4 },
-  caption: { position: 'absolute', left: space.sm, right: space.sm, bottom: space.sm, gap: 2 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  name: { color: '#fff', fontSize: 17, fontWeight: '800', flexShrink: 1 },
-  subtitle: { color: '#F2DCE6', fontSize: 12, fontWeight: '600' },
+  online: { width: 8, height: 8, borderRadius: 4 },
+  name: { color: '#fff', fontSize: 16, fontWeight: '800', flexShrink: 1 },
+  lock: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
 });

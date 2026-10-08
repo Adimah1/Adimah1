@@ -6,11 +6,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#2A0A1F"
+      "backgroundColor": "#0B0A0C"
     },
     "ios": {
       "bundleIdentifier": "com.lushdate.app",
@@ -22,7 +22,7 @@
     "android": {
       "package": "com.lushdate.app",
       "adaptiveIcon": {
-        "backgroundColor": "#2A0A1F",
+        "backgroundColor": "#0B0A0C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

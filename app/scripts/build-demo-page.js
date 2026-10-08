@@ -26,15 +26,28 @@ const js = scriptSrcs
   .join('\n;\n')
   .replace(/<\/script/gi, '<\\/script');
 
-// Ionicons is the only font the app uses; inline it so icons render offline.
-// expo-font treats families declared in #expo-generated-fonts as already loaded.
-const fontDir = path.join(
-  exportDir,
-  'assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts',
-);
-const fontFile = fs.readdirSync(fontDir).find((f) => f.startsWith('Ionicons') && f.endsWith('.ttf'));
-if (!fontFile) throw new Error('Ionicons font not found in export');
-const font = fs.readFileSync(path.join(fontDir, fontFile)).toString('base64');
+// Inline the app's fonts so text and icons render without network access.
+// expo-font treats families declared in #expo-generated-fonts as already
+// loaded, so the family names must match the ones the app registers.
+const FONT_FAMILIES = {
+  Ionicons: 'ionicons',
+  Anton_400Regular: 'Anton_400Regular',
+  InstrumentSerif_400Regular: 'InstrumentSerif_400Regular',
+};
+function findFonts(dir, found = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) findFonts(full, found);
+    else if (entry.name.endsWith('.ttf')) found.push(full);
+  }
+  return found;
+}
+const fontFaces = Object.entries(FONT_FAMILIES).map(([fileStem, family]) => {
+  const file = findFonts(path.join(exportDir, 'assets')).find((f) => path.basename(f).startsWith(`${fileStem}.`));
+  if (!file) throw new Error(`${fileStem} font not found in export`);
+  const data = fs.readFileSync(file).toString('base64');
+  return `@font-face { font-family: ${family}; src: url(data:font/ttf;base64,${data}) format('truetype'); }`;
+});
 
 // Expo Router reads the page URL. Hosted pages live at arbitrary paths (or in
 // sandboxed frames where history is off-limits), so start the app at "/" and
@@ -48,13 +61,13 @@ const historyShim = `(function () {
 })();`;
 
 const page = `<title>LushDate Demo</title>
-<meta name="theme-color" content="#170612">
+<meta name="theme-color" content="#0B0A0C">
 ${styles}
 <style id="expo-generated-fonts">
-@font-face { font-family: ionicons; src: url(data:font/ttf;base64,${font}) format('truetype'); }
+${fontFaces.join('\n')}
 </style>
 <style>
-html, body { height: 100%; background: #170612; }
+html, body { height: 100%; background: #0B0A0C; }
 body { margin: 0; overflow: hidden; }
 #root { display: flex; height: 100%; flex: 1; }
 </style>

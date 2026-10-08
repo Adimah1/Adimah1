@@ -2,6 +2,8 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
+import { PageTitle } from '@/components/Brand';
+import { TAB_BAR_SPACE } from '@/components/GlassTabBar';
 import { ProfileTile } from '@/components/ProfileTile';
 import { Button, EmptyState, Screen } from '@/components/ui';
 import { useUserId } from '@/lib/auth';
@@ -39,17 +41,14 @@ export default function Likes() {
 
   return (
     <Screen edges={['top']}>
-      <View style={styles.header}>
-        <Text style={[styles.heading, { color: t.text }]}>Likes</Text>
-        <Text style={{ color: t.muted }}>{count === 1 ? '1 person likes you' : `${count} people like you`}</Text>
-      </View>
+      <PageTitle title="Likes" subtitle={count === 1 ? '1 person likes you' : `${count} people like you`} />
 
       {isPlus ? (
         <FlatList
           data={likes}
           keyExtractor={(l) => l.id}
           numColumns={2}
-          contentContainerStyle={[styles.grid, likes.length === 0 && { flex: 1 }]}
+          contentContainerStyle={[styles.grid, likes.length === 0 && { flex: 1 }, { paddingBottom: TAB_BAR_SPACE }]}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={t.primary} />}
           ListEmptyComponent={
             loading ? null : (
@@ -77,7 +76,7 @@ export default function Likes() {
           data={teaser}
           keyExtractor={(l) => l.id}
           numColumns={2}
-          contentContainerStyle={styles.grid}
+          contentContainerStyle={[styles.grid, { paddingBottom: TAB_BAR_SPACE }]}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={t.primary} />}
           ListHeaderComponent={
             <View style={styles.upsell}>

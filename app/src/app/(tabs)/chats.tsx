@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
+import { PageTitle, SectionLabel } from '@/components/Brand';
+import { TAB_BAR_SPACE } from '@/components/GlassTabBar';
 import { EmptyState, Screen } from '@/components/ui';
 import { useUserId } from '@/lib/auth';
 import { matchPreview, timeAgo } from '@/lib/format';
@@ -46,16 +48,18 @@ export default function Chats() {
 
   return (
     <Screen edges={['top']}>
-      <Text style={[styles.heading, { color: t.text }]}>Chats</Text>
+      <PageTitle title="Chats" />
       <FlatList
         data={conversations}
         keyExtractor={(m) => m.match_id}
-        contentContainerStyle={matches.length === 0 ? { flex: 1 } : undefined}
+        contentContainerStyle={[{ paddingBottom: TAB_BAR_SPACE }, matches.length === 0 && { flexGrow: 1 }]}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={t.primary} />}
         ListHeaderComponent={
           fresh.length > 0 ? (
             <View>
-              <Text style={[styles.section, { color: t.muted }]}>New matches</Text>
+              <View style={styles.sectionWrap}>
+                <SectionLabel lead="New" tail="matches" />
+              </View>
               <FlatList
                 horizontal
                 data={fresh}
@@ -64,14 +68,18 @@ export default function Chats() {
                 contentContainerStyle={{ gap: space.md, paddingHorizontal: space.md }}
                 renderItem={({ item }) => (
                   <Pressable onPress={() => openChat(item.match_id)} style={styles.fresh}>
-                    <Avatar path={item.photo} size={72} ring={t.primary} />
+                    <Avatar path={item.photo} size={68} shape="square" online />
                     <Text style={{ color: t.text, fontWeight: '600' }} numberOfLines={1}>
                       {item.display_name}
                     </Text>
                   </Pressable>
                 )}
               />
-              {conversations.length > 0 ? <Text style={[styles.section, { color: t.muted }]}>Messages</Text> : null}
+              {conversations.length > 0 ? (
+                <View style={styles.sectionWrap}>
+                  <SectionLabel lead="Your" tail="messages" />
+                </View>
+              ) : null}
             </View>
           ) : null
         }
@@ -91,7 +99,7 @@ export default function Chats() {
               onPress={() => openChat(item.match_id)}
               style={({ pressed }) => [styles.row, { backgroundColor: pressed ? t.surface : 'transparent' }]}
             >
-              <Avatar path={item.photo} size={56} />
+              <Avatar path={item.photo} size={56} shape="square" />
               <View style={{ flex: 1, gap: 2 }}>
                 <View style={styles.rowTop}>
                   <Text style={[styles.name, { color: t.text }]} numberOfLines={1}>
@@ -120,6 +128,7 @@ function openChat(matchId: string) {
 }
 
 const styles = StyleSheet.create({
+  sectionWrap: { paddingHorizontal: space.md, paddingVertical: space.md },
   heading: { fontSize: 32, fontWeight: '900', letterSpacing: -0.8, paddingHorizontal: space.md, paddingTop: space.sm },
   section: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, padding: space.md },
   fresh: { width: 76, alignItems: 'center', gap: 6 },

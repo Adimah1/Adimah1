@@ -1,25 +1,29 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
-import { Button, EmptyState, Loading, Screen } from '@/components/ui';
+import { Glass } from '@/components/Glass';
+import { GlassIconButton, ProfileHero } from '@/components/ProfileHero';
+import { EmptyState, Loading, Screen } from '@/components/ui';
 import { openSafetyMenu } from '@/lib/safety';
-import { errorMessage, photoUrl, supabase } from '@/lib/supabase';
-import { radius, space, useTheme } from '@/lib/theme';
-import { LOOKING_FOR_LABELS, type PublicProfile } from '@/lib/types';
-import { showAlert } from '@/lib/alert';
+import { supabase } from '@/lib/supabase';
+import { swipeOn } from '@/lib/swipe';
+import { useTheme } from '@/lib/theme';
+import { GENDER_SELF_LABELS, LOOKING_FOR_LABELS, type LookingFor, type PublicProfile } from '@/lib/types';
+
+const LOOKING_SHORT: Record<LookingFor, string> = {
+  relationship: 'Dating',
+  casual: 'Casual',
+  friends: 'Friends',
+  not_sure: 'Open',
+};
 
 export default function ProfileScreen() {
   const t = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const { id, dist } = useLocalSearchParams<{ id: string; dist?: string }>();
   const [profile, setProfile] = useState<PublicProfile | null | undefined>(undefined);
-  const [photoIndex, setPhotoIndex] = useState(0);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -31,25 +35,8 @@ export default function ProfileScreen() {
   async function swipe(liked: boolean) {
     if (!profile) return;
     setBusy(true);
-    const { data: matchId, error } = await supabase.rpc('swipe', { target: profile.id, liked });
+    await swipeOn(profile, liked, () => router.back(), true);
     setBusy(false);
-    if (error) {
-      showAlert('Something went wrong', errorMessage(error));
-      return;
-    }
-    if (liked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
-    if (matchId) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-      showAlert('It’s a match! 💘', `You and ${profile.display_name} like each other.`, [
-        { text: 'Keep browsing', style: 'cancel', onPress: () => router.back() },
-        {
-          text: 'Say hi',
-          onPress: () => router.replace({ pathname: '/chat/[matchId]', params: { matchId: matchId as string } }),
-        },
-      ]);
-      return;
-    }
-    router.back();
   }
 
   async function openChat() {
@@ -61,120 +48,98 @@ export default function ProfileScreen() {
   if (profile === undefined) return <Loading />;
   if (profile === null) {
     return (
-      <Screen edges={['bottom']}>
+      <Screen>
         <EmptyState
           emoji="👻"
           title="Profile unavailable"
           body="This person may have paused or deleted their profile."
+          action={<GlassIconButton icon="arrow-back" label="Back" onPress={() => router.back()} />}
         />
       </Screen>
     );
   }
 
+  const miles = dist ? Number(dist) : null;
+  const handle = `@${profile.display_name.toLowerCase().replace(/\s+/g, '')}`;
+
   return (
-    <View style={{ flex: 1, backgroundColor: t.background }}>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <Pressable
-              accessibilityLabel="Report or block"
-              hitSlop={12}
-              onPress={() => openSafetyMenu(profile.id, profile.display_name, () => router.back())}
-            >
-              <Ionicons name="ellipsis-horizontal" size={22} color={t.text} />
-            </Pressable>
-          ),
-        }}
-      />
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 + insets.bottom }}>
-        <ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(e) => setPhotoIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
-        >
-          {profile.photos.map((p) => (
-            <Image key={p} source={{ uri: photoUrl(p) }} style={{ width, height: width * 1.25 }} contentFit="cover" />
-          ))}
-        </ScrollView>
-        {profile.photos.length > 1 ? (
-          <View style={styles.dots}>
-            {profile.photos.map((p, i) => (
-              <View key={p} style={[styles.dot, { backgroundColor: i === photoIndex ? t.primary : t.border }]} />
-            ))}
-          </View>
-        ) : null}
-
-        <View style={styles.info}>
-          <View style={styles.nameRow}>
-            <Text style={[styles.name, { color: t.text }]}>
-              {profile.display_name}, {profile.age}
-            </Text>
-            {profile.verified ? <Ionicons name="checkmark-circle" size={24} color="#6CC4FF" /> : null}
-          </View>
-          <View style={[styles.tag, { backgroundColor: t.surfaceRaised }]}>
-            <Ionicons name="sparkles" size={14} color={t.accent} />
-            <Text style={{ color: t.text, fontWeight: '600' }}>{LOOKING_FOR_LABELS[profile.looking_for]}</Text>
-          </View>
-          {profile.bio ? <Text style={[styles.bio, { color: t.text }]}>{profile.bio}</Text> : null}
-        </View>
-      </ScrollView>
-
-      <View style={[styles.actions, { paddingBottom: insets.bottom + space.md }]}>
-        {profile.matched ? (
-          <Button title={`Message ${profile.display_name}`} onPress={openChat} style={{ flex: 1 }} />
+    <ProfileHero
+      photos={profile.photos}
+      name={profile.display_name}
+      subtitle={`${handle} · ${LOOKING_FOR_LABELS[profile.looking_for]}`}
+      verified={profile.verified}
+      bio={profile.bio}
+      title={handle}
+      stats={[
+        { value: String(profile.age), label: 'Age' },
+        { value: miles === null ? '—' : miles <= 1 ? '<1 mi' : `${miles} mi`, label: 'Away' },
+        { value: LOOKING_SHORT[profile.looking_for], label: 'Looking for' },
+      ]}
+      tags={[
+        `#${GENDER_SELF_LABELS[profile.gender].toLowerCase()}`,
+        `#${LOOKING_SHORT[profile.looking_for].toLowerCase()}`,
+        ...(profile.verified ? ['#verified'] : []),
+        ...(profile.matched ? ['#match'] : []),
+      ]}
+      left={<GlassIconButton icon="chevron-back" label="Back" onPress={() => router.back()} />}
+      right={
+        <GlassIconButton
+          icon="ellipsis-horizontal"
+          label="Report or block"
+          onPress={() => openSafetyMenu(profile.id, profile.display_name, () => router.back())}
+        />
+      }
+      bottomSpace={110}
+      footer={
+        profile.matched ? (
+          <Pressable accessibilityRole="button" onPress={openChat} style={{ flex: 1 }}>
+            <LinearGradient colors={t.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.message}>
+              <Ionicons name="chatbubble-ellipses" size={20} color="#fff" />
+              <Text style={styles.messageText}>Message {profile.display_name}</Text>
+            </LinearGradient>
+          </Pressable>
         ) : (
           <>
-            <Pressable
-              accessibilityLabel="Pass"
-              disabled={busy}
-              onPress={() => swipe(false)}
-              style={[styles.round, { backgroundColor: t.surface, borderColor: t.border }]}
-            >
-              <Ionicons name="close" size={34} color={t.muted} />
+            <Pressable accessibilityLabel="Pass" disabled={busy} onPress={() => swipe(false)}>
+              <Glass radius={36} intensity={60} style={styles.round}>
+                <Ionicons name="close" size={34} color="#fff" />
+              </Glass>
             </Pressable>
-            <Pressable
-              accessibilityLabel="Like"
-              disabled={busy}
-              onPress={() => swipe(true)}
-              style={[styles.round, styles.like, { backgroundColor: t.primary, borderColor: t.primary }]}
-            >
-              <Ionicons name="heart" size={38} color="#fff" />
+            <Pressable accessibilityLabel="Like" disabled={busy} onPress={() => swipe(true)}>
+              <LinearGradient
+                colors={t.glow}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.round, styles.like]}
+              >
+                <Ionicons name="heart" size={38} color="#fff" />
+              </LinearGradient>
             </Pressable>
           </>
-        )}
-      </View>
-    </View>
+        )
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingTop: space.sm },
-  dot: { width: 7, height: 7, borderRadius: 4 },
-  info: { padding: space.lg, gap: space.md },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  name: { fontSize: 32, fontWeight: '900', letterSpacing: -0.6 },
-  tag: {
+  round: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  like: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    shadowColor: '#FF4F8B',
+    shadowOpacity: 0.6,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  message: {
     flexDirection: 'row',
-    alignSelf: 'flex-start',
     alignItems: 'center',
-    gap: 6,
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  bio: { fontSize: 17, lineHeight: 25 },
-  actions: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
     justifyContent: 'center',
-    gap: space.xl,
-    paddingHorizontal: space.lg,
-    paddingTop: space.md,
+    gap: 10,
+    borderRadius: 999,
+    paddingVertical: 17,
   },
-  round: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  like: { width: 80, height: 80, borderRadius: 40 },
+  messageText: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

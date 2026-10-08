@@ -8,7 +8,7 @@ import { Button, Field } from '@/components/ui';
 import { IS_DEMO } from '@/lib/env';
 import { toE164 } from '@/lib/format';
 import { errorMessage, supabase } from '@/lib/supabase';
-import { space } from '@/lib/theme';
+import { fonts, space } from '@/lib/theme';
 import { showAlert } from '@/lib/alert';
 
 export default function SignIn() {
@@ -46,13 +46,18 @@ export default function SignIn() {
   }
 
   return (
-    <LinearGradient colors={['#3B0B2C', '#170612']} style={{ flex: 1 }}>
+    <LinearGradient colors={['#2A0F24', '#0B0A0C', '#0B0A0C']} style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
           <View style={styles.hero}>
-            <View style={styles.logo}>
-              <Ionicons name="heart" size={40} color="#fff" />
-            </View>
+            <LinearGradient
+              colors={['#FF7AB0', '#8F5BFF', '#3FA9FF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.logo}
+            >
+              <Ionicons name="heart" size={38} color="#fff" style={{ transform: [{ rotate: '-45deg' }] }} />
+            </LinearGradient>
             <Text style={styles.brand}>LushDate</Text>
             <Text style={styles.tagline}>See who’s actually around you.{'\n'}Chat in moments that vanish.</Text>
           </View>
@@ -118,12 +123,13 @@ const styles = StyleSheet.create({
   logo: {
     width: 84,
     height: 84,
-    borderRadius: 28,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF4F8B',
+    transform: [{ rotate: '45deg' }],
+    marginBottom: space.sm,
   },
-  brand: { color: '#fff', fontSize: 44, fontWeight: '900', letterSpacing: -1 },
+  brand: { color: '#fff', fontFamily: fonts.serif, fontSize: 60, lineHeight: 66 },
   tagline: { color: '#F6CFE0', fontSize: 17, textAlign: 'center', lineHeight: 24 },
   form: { gap: space.md, marginBottom: space.lg },
   fine: { color: '#C9A3B6', fontSize: 12, textAlign: 'center', lineHeight: 17 },
