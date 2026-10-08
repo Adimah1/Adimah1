@@ -1,6 +1,6 @@
 /**
- * LushDate's look: near-black, glassy surfaces, a rose accent, a serif
- * wordmark and a condensed display face for names on photo cards.
+ * LushDate's look: near-black, glassy surfaces, a cherry-red accent, a serif
+ * wordmark, the cherry logo's reds, and a condensed display face for names on photo cards.
  * The app is dark-only by design (see app.json userInterfaceStyle).
  */
 const palette = {
@@ -12,15 +12,15 @@ const palette = {
   glassBorder: 'rgba(255,255,255,0.14)',
   text: '#FFFFFF',
   muted: '#A49CA8',
-  primary: '#FF4F8B',
+  primary: '#FF2E4D',
   primaryText: '#FFFFFF',
   accent: '#FFC56E',
   live: '#FF5A1F',
   info: '#2F8CFF',
   success: '#3DDC84',
   danger: '#FF5C5C',
-  gradient: ['#FF4F8B', '#B02A7A'] as const,
-  glow: ['#FF7AB0', '#8F5BFF', '#3FA9FF'] as const,
+  gradient: ['#FF3B5C', '#B0102E'] as const,
+  glow: ['#FF6B81', '#FF1744', '#A3001E'] as const,
 };
 
 export type Theme = typeof palette;

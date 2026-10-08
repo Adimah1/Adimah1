@@ -140,7 +140,7 @@ export default function CallScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 80 }]}>
-      <Avatar path={other.photo} size={140} ring="#FF4F8B" />
+      <Avatar path={other.photo} size={140} ring="#FF1744" />
       <Text style={styles.name}>{other.display_name}</Text>
       <Text style={styles.status}>{label}</Text>
 

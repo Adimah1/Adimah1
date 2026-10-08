@@ -1,32 +1,30 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { fonts, useTheme } from '@/lib/theme';
 
-/** The LushDate mark: a glowing gradient diamond with a heart, and the serif wordmark. */
+import { LOGO_ASPECT, LOGO_URI } from './logoImage';
+
+/** The LushDate mark: the cherry logo and the serif wordmark. */
 export function Wordmark({ size = 26 }: { size?: number }) {
   const t = useTheme();
-  const mark = Math.round(size * 1.15);
   return (
     <View style={styles.row}>
-      <LinearGradient
-        colors={t.glow}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{
-          width: mark,
-          height: mark,
-          borderRadius: mark * 0.32,
-          alignItems: 'center',
-          justifyContent: 'center',
-          transform: [{ rotate: '45deg' }],
-        }}
-      >
-        <Ionicons name="heart" size={mark * 0.55} color="#fff" style={{ transform: [{ rotate: '-45deg' }] }} />
-      </LinearGradient>
+      <CherryLogo height={Math.round(size * 1.35)} />
       <Text style={{ color: t.text, fontFamily: fonts.serif, fontSize: size * 1.1 }}>LushDate</Text>
     </View>
+  );
+}
+
+/** The cherry logo. */
+export function CherryLogo({ height }: { height: number }) {
+  return (
+    <Image
+      source={{ uri: LOGO_URI }}
+      style={{ height, width: height * LOGO_ASPECT }}
+      contentFit="contain"
+      accessibilityLabel="LushDate"
+    />
   );
 }
 

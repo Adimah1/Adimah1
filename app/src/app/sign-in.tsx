@@ -1,9 +1,9 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CherryLogo } from '@/components/Brand';
 import { Button, Field } from '@/components/ui';
 import { IS_DEMO } from '@/lib/env';
 import { toE164 } from '@/lib/format';
@@ -46,18 +46,13 @@ export default function SignIn() {
   }
 
   return (
-    <LinearGradient colors={['#2A0F24', '#0B0A0C', '#0B0A0C']} style={{ flex: 1 }}>
+    <LinearGradient colors={['#2A0A10', '#0B0A0C', '#0B0A0C']} style={{ flex: 1 }}>
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
           <View style={styles.hero}>
-            <LinearGradient
-              colors={['#FF7AB0', '#8F5BFF', '#3FA9FF']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logo}
-            >
-              <Ionicons name="heart" size={38} color="#fff" style={{ transform: [{ rotate: '-45deg' }] }} />
-            </LinearGradient>
+            <View style={styles.logo}>
+              <CherryLogo height={120} />
+            </View>
             <Text style={styles.brand}>LushDate</Text>
             <Text style={styles.tagline}>See who’s actually around you.{'\n'}Chat in moments that vanish.</Text>
           </View>
