@@ -3,13 +3,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { IS_DEMO } from './env';
-import { supabase } from './supabase';
+import { reportLocation, type LocationVerdict } from './security';
 
 export type LocationStatus = 'unknown' | 'granted' | 'denied';
 
 /**
- * Sends the device's approximate position to the server when the app comes to
- * the foreground. The server snaps it to a ~450 m grid before storing it.
+ * Sends the device's position to the server when the app comes to the
+ * foreground. The server checks it (spoofing, VPNs, impossible travel) and
+ * stores only an approximate point on a ~450 m grid.
  */
 export function useLocationSync(enabled: boolean) {
   const [status, setStatus] = useState<LocationStatus>('unknown');
@@ -43,10 +44,13 @@ async function pushLocation(): Promise<LocationStatus> {
   const position = await Location.getCurrentPositionAsync({
     accuracy: Location.Accuracy.Balanced,
   });
-  const { error } = await supabase.rpc('update_location', {
-    lat: position.coords.latitude,
-    lng: position.coords.longitude,
-  });
-  if (error) console.warn('update_location failed', error.message);
+  lastVerdict = await reportLocation({ ...position.coords, mocked: position.mocked });
   return 'granted';
+}
+
+let lastVerdict: LocationVerdict | null = null;
+
+/** The server's verdict on the most recent location update. */
+export function lastLocationVerdict(): LocationVerdict | null {
+  return lastVerdict;
 }

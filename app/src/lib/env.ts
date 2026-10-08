@@ -9,6 +9,8 @@ export const REVENUECAT_KEY =
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
   }) ?? '';
 
+export const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+
 /** Demo mode: an in-memory backend with pretend people, for previewing the app. */
 export const IS_DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
 

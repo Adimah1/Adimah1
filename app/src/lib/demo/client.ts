@@ -14,6 +14,12 @@ type Row = Record<string, any>;
 type Result = { data: any; error: { message: string } | null };
 
 const ME = 'demo-me';
+
+// Same idea as the server's mentions_payment() / mentions_contact().
+const PAYMENT_PATTERN =
+  /cash ?app|(^|\s)\$[a-z][a-z0-9_]{2,}|venmo|zelle|pay ?pal|western union|gift ?cards?|bitcoin|crypto|send (me )?(some )?money|bank (details|account)/i;
+const CONTACT_PATTERN =
+  /\+?\d[\d\s().-]{7,}\d|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}|https?:\/\/|whats ?app|telegram|snapchat|instagram/i;
 const DEMO_CODE = '123456';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
@@ -70,6 +76,8 @@ class DemoDb {
       verification_requests: [],
       push_tokens: [],
       calls: [],
+      date_plans: [],
+      date_deposits: [],
     };
   }
 
@@ -119,7 +127,18 @@ class DemoDb {
     const row: Row = { ...input };
     if (table === 'profiles') {
       if (ageFrom(row.birthdate) < 18) return fail('LushDate is only for adults 18 and over');
-      Object.assign(row, { age_min: 18, age_max: 99, is_paused: false, incognito: false, verified: false, ...input });
+      Object.assign(row, {
+        age_min: 18,
+        age_max: 99,
+        is_paused: false,
+        incognito: false,
+        verified: false,
+        verification_tier: 0,
+        kyc_status: 'none',
+        emergency_contact_name: null,
+        emergency_contact_phone: null,
+        ...input,
+      });
       this.tables.profiles.push(row);
       this.seedFor(row);
       return ok(row);
@@ -132,10 +151,23 @@ class DemoDb {
         expires_at: row.kind === 'snap' ? new Date(Date.now() + 86_400_000).toISOString() : null,
         body: row.kind === 'text' ? row.body : null,
         media_path: row.kind === 'snap' ? row.media_path : null,
+        held: false,
+        held_reason: null,
+        flags: [],
       });
+      // Mirror the server's screening: money requests from accounts without
+      // a verified ID are held, contact details are flagged.
+      if (row.kind === 'text') {
+        const me = this.profile(row.sender_id);
+        if (PAYMENT_PATTERN.test(row.body)) {
+          row.flags.push('payment');
+          if ((me?.verification_tier ?? 0) < 2) Object.assign(row, { held: true, held_reason: 'payment' });
+        }
+        if (CONTACT_PATTERN.test(row.body)) row.flags.push('contact');
+      }
       this.tables.messages.push(row);
       this.notify('messages', 'INSERT', row);
-      if (row.sender_id === ME) this.scheduleReaction(row);
+      if (row.sender_id === ME && !row.held) this.scheduleReaction(row);
       return ok(row);
     }
     if (table === 'reports' || table === 'verification_requests') {
@@ -472,9 +504,116 @@ class DemoDb {
         return ok(null);
       }
 
+      case 'my_account_state':
+        return ok({
+          status: 'active',
+          reason: null,
+          verification_tier: me?.verification_tier ?? 0,
+          kyc_status: me?.kyc_status ?? 'none',
+          appeal_open: false,
+        });
+
+      case 'register_device':
+      case 'submit_appeal':
+        return ok(null);
+
+      case 'my_credit_balance':
+        return ok(0);
+
+      case 'propose_date': {
+        if ((me?.verification_tier ?? 0) < 2) return fail('Verify your ID to use date deposits.');
+        const match = this.tables.matches.find((m) => m.id === args.p_match_id);
+        if (!match) return fail('match not found');
+        if (
+          this.tables.date_plans.some(
+            (d) => d.match_id === match.id && ['proposed', 'accepted', 'confirmed'].includes(d.status),
+          )
+        ) {
+          return fail('There’s already a date planned in this chat.');
+        }
+        const plan: Row = {
+          id: uid(),
+          match_id: match.id,
+          proposer_id: ME,
+          invitee_id: this.otherIn(match),
+          place_name: args.p_place_name,
+          // Demo dates start in 10 minutes so check-in can be tried right away.
+          starts_at: new Date(Date.now() + 10 * 60_000).toISOString(),
+          deposit_cents: args.p_deposit_cents,
+          status: 'proposed',
+          outcome_detail: null,
+          created_at: new Date().toISOString(),
+        };
+        this.tables.date_plans.push(plan);
+        this.notify('date_plans', 'INSERT', plan);
+        setTimeout(() => this.updatePlan(plan, { status: 'accepted' }), 2000);
+        return ok(plan.id);
+      }
+
+      case 'respond_date': {
+        const plan = this.tables.date_plans.find((d) => d.id === args.p_plan_id);
+        if (!plan) return fail('This date can’t be answered any more.');
+        this.updatePlan(plan, { status: args.p_accept ? 'accepted' : 'declined' });
+        return ok(plan.status);
+      }
+
+      case 'cancel_date':
+      case 'dispute_date': {
+        const plan = this.tables.date_plans.find((d) => d.id === args.p_plan_id);
+        if (plan) this.updatePlan(plan, { status: name === 'cancel_date' ? 'cancelled' : 'disputed' });
+        return ok(null);
+      }
+
       default:
         return fail(`Demo: ${name} is not available`);
     }
+  }
+
+  updatePlan(plan: Row, patch: Row) {
+    Object.assign(plan, patch);
+    this.notify('date_plans', 'UPDATE', plan);
+  }
+
+  setDeposit(plan: Row, user: string, patch: Row) {
+    let dep = this.tables.date_deposits.find((d) => d.plan_id === plan.id && d.user_id === user);
+    if (!dep) {
+      dep = {
+        id: uid(),
+        plan_id: plan.id,
+        user_id: user,
+        amount_cents: plan.deposit_cents,
+        status: 'pending',
+        checked_in_at: null,
+      };
+      this.tables.date_deposits.push(dep);
+    }
+    Object.assign(dep, patch);
+    this.notify('date_deposits', 'UPDATE', dep);
+  }
+
+  // Demo deposit: no card; the pretend person places theirs a moment later.
+  placeDeposit(planId: string) {
+    const plan = this.tables.date_plans.find((d) => d.id === planId);
+    if (!plan || !['accepted', 'confirmed'].includes(plan.status)) return fail('This date isn’t ready for deposits.');
+    this.setDeposit(plan, ME, { status: 'authorized' });
+    setTimeout(() => {
+      this.setDeposit(plan, plan.proposer_id === ME ? plan.invitee_id : plan.proposer_id, { status: 'authorized' });
+      this.updatePlan(plan, { status: 'confirmed' });
+    }, 1500);
+    return ok({ clientSecret: 'demo' });
+  }
+
+  checkIn(planId: string) {
+    const plan = this.tables.date_plans.find((d) => d.id === planId);
+    if (!plan || plan.status !== 'confirmed') return ok({ ok: false, reason: 'not_confirmed' });
+    this.setDeposit(plan, ME, { checked_in_at: new Date().toISOString() });
+    setTimeout(() => {
+      const other = plan.proposer_id === ME ? plan.invitee_id : plan.proposer_id;
+      this.setDeposit(plan, other, { checked_in_at: new Date().toISOString() });
+      for (const d of this.tables.date_deposits.filter((x) => x.plan_id === plan.id)) d.status = 'released';
+      this.updatePlan(plan, { status: 'completed' });
+    }, 2500);
+    return ok({ ok: true, distance_m: 12 });
   }
 
   pendingLikers(): Row[] {
@@ -699,11 +838,22 @@ export function createDemoClient(): SupabaseClient {
     },
 
     functions: {
-      invoke: async (name: string) => {
+      invoke: async (name: string, opts?: { body?: Row }) => {
         if (name === 'delete-account') db.reset();
         // The demo can't analyse photos; the real check runs on the server.
         if (name === 'check-photo') return ok({ ok: true, checked: false });
         if (name === 'call-token') return ok({ token: 'demo', url: 'demo' });
+        if (name === 'report-location') return ok({ verdict: 'ok', reasons: [] });
+        if (name === 'panic') return ok({ notified: false, reason: 'no_contact' });
+        if (name === 'date-deposit') return db.placeDeposit(opts?.body?.planId);
+        if (name === 'date-check-in') return db.checkIn(opts?.body?.planId);
+        if (name === 'kyc-start') {
+          // Simulated ID + liveness check that passes after a moment.
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const me = db.profile(ME);
+          if (me) Object.assign(me, { kyc_status: 'approved', verification_tier: 2, verified: true });
+          return ok({ status: 'approved' });
+        }
         return ok({ deleted: true });
       },
     },

@@ -9,6 +9,7 @@ import { useUserId } from '@/lib/auth';
 import { useLocationSync } from '@/lib/location';
 import { configurePurchases } from '@/lib/purchases';
 import { registerForPush } from '@/lib/push';
+import { registerDevice } from '@/lib/security';
 import { supabase } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 
@@ -49,6 +50,7 @@ export default function TabsLayout() {
   useEffect(() => {
     configurePurchases(userId).catch((e) => console.warn('RevenueCat setup failed', e));
     registerForPush(userId).catch((e) => console.warn('Push registration failed', e));
+    registerDevice().catch((e) => console.warn('Device registration failed', e));
   }, [userId]);
 
   return (

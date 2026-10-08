@@ -3,7 +3,9 @@ import { useCallback, useState } from 'react';
 import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
-import { Button, Card, Muted, Screen } from '@/components/ui';
+import { Button, Card, Field, Muted, Screen } from '@/components/ui';
+import { useAuth, useUserId } from '@/lib/auth';
+import { toE164 } from '@/lib/format';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
 import { showAlert } from '@/lib/alert';
@@ -25,6 +27,34 @@ interface Blocked {
 export default function Safety() {
   const t = useTheme();
   const [blocked, setBlocked] = useState<Blocked[]>([]);
+  const { profile, refreshProfile } = useAuth();
+  const userId = useUserId();
+  const [contactName, setContactName] = useState(profile?.emergency_contact_name ?? '');
+  const [contactPhone, setContactPhone] = useState(profile?.emergency_contact_phone ?? '');
+  const [savingContact, setSavingContact] = useState(false);
+
+  async function saveContact() {
+    const phone = contactPhone.trim() ? toE164(contactPhone) : null;
+    if (contactPhone.trim() && !phone) {
+      showAlert('Check the number', 'Enter a mobile number with its country code, e.g. +1 555 555 0100.');
+      return;
+    }
+    setSavingContact(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ emergency_contact_name: contactName.trim() || null, emergency_contact_phone: phone })
+      .eq('id', userId);
+    setSavingContact(false);
+    if (error) {
+      showAlert('Not saved', errorMessage(error));
+      return;
+    }
+    await refreshProfile();
+    showAlert(
+      'Saved',
+      phone ? `We’ll text ${contactName.trim() || phone} if you press the panic button.` : 'Emergency contact removed.',
+    );
+  }
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc('my_blocks');
@@ -63,6 +93,24 @@ export default function Safety() {
           <Muted>If you’re in immediate danger, call emergency services now.</Muted>
           <Button title="Call 911" variant="danger" onPress={() => Linking.openURL('tel:911')} />
         </Card>
+
+        <Text style={[styles.heading, { color: t.text }]}>Emergency contact</Text>
+        <Muted>If you press “I feel unsafe” in a chat, we block that person and text this contact your location.</Muted>
+        <Field
+          label="Name"
+          value={contactName}
+          onChangeText={setContactName}
+          placeholder="e.g. Sam (sister)"
+          maxLength={60}
+        />
+        <Field
+          label="Mobile number"
+          value={contactPhone}
+          onChangeText={setContactPhone}
+          placeholder="+1 555 555 0100"
+          keyboardType="phone-pad"
+        />
+        <Button title="Save emergency contact" variant="secondary" onPress={saveContact} loading={savingContact} />
 
         <Text style={[styles.heading, { color: t.text }]}>Dating safely</Text>
         {TIPS.map((tip) => (

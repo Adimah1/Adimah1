@@ -1,6 +1,27 @@
 import type { ImagePickerAsset } from 'expo-image-picker';
 
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
+
 import { supabase } from './supabase';
+
+const MAX_EDGE = 1600;
+
+async function stripMetadata(uri: string): Promise<string> {
+  try {
+    const context = ImageManipulator.manipulate(uri);
+    const image = await context.renderAsync();
+    const scale = Math.min(1, MAX_EDGE / Math.max(image.width || 1, image.height || 1));
+    if (scale < 1) {
+      context.resize({ width: Math.round(image.width * scale) });
+      const resized = await context.renderAsync();
+      return (await resized.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 })).uri;
+    }
+    return (await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8 })).uri;
+  } catch (err) {
+    // Never upload an unprocessed original.
+    throw new Error(`Couldn’t prepare this photo (${String(err)}). Please try another.`);
+  }
+}
 
 const EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -22,9 +43,12 @@ export async function uploadImage(
   folder: string,
   asset: ImagePickerAsset,
 ): Promise<string> {
-  const contentType = asset.mimeType && EXTENSIONS[asset.mimeType] ? asset.mimeType : 'image/jpeg';
+  // Re-encode as JPEG: strips EXIF metadata (GPS position, device, time)
+  // so a photo can never reveal where someone lives.
+  const clean = await stripMetadata(asset.uri);
+  const contentType = 'image/jpeg';
   const path = `${folder}/${randomId()}.${EXTENSIONS[contentType]}`;
-  const body = await (await fetch(asset.uri)).arrayBuffer();
+  const body = await (await fetch(clean)).arrayBuffer();
   const { error } = await supabase.storage.from(bucket).upload(path, body, { contentType });
   if (error) throw error;
   return path;

@@ -12,7 +12,7 @@ This repository contains the MVP described in [`docs/MVP.md`](docs/MVP.md):
 | `app/` | iOS + Android app (Expo SDK 57, React Native, Expo Router, TypeScript) |
 | `supabase/migrations/` | Postgres schema, privacy rules (RLS), and all server-side logic as SQL functions |
 | `supabase/functions/` | Edge functions: RevenueCat webhook, snap purge, push notifications, photo checks, account deletion |
-| `supabase/tests/` | Behavioural tests for the schema (66 checks) |
+| `supabase/tests/` | Behavioural tests for the schema (137 checks) |
 | `docs/MVP.md` | Product scope, what's deliberately deferred, legal checklist |
 
 ## Features
@@ -38,7 +38,17 @@ on/off and flip camera. Video runs through [LiveKit](https://livekit.io); the `c
 gives room access to the two people on an active call.
 **Boosts** (consumable) — top of everyone's feed for 30 minutes.
 
-**Safety** — report (with reasons) and block from any profile or chat; blocking is symmetric and
+**Trust & safety (zero trust)** — every location ping, message, account and payment is checked on the
+server: spoofed/teleporting/VPN locations, money requests and off-platform payment pushes in chat,
+scam-script patterns, rapid reports, duplicate IDs and ban evasion feed a risk score that shadowbans or
+freezes accounts, with in-app appeals. Government ID + liveness unlocks money features. Full design,
+thresholds and fallbacks: [`docs/SECURITY.md`](docs/SECURITY.md).
+
+**Show-up deposits** — matched, ID-verified people can plan a date where both place the same refundable
+card hold; checking in at the venue releases both, a no-show's deposit becomes credit for the person who
+came. Money never moves between users.
+
+**Safety** — panic button (blocks, deletes the chat, texts your emergency contact your location), report (with reasons) and block from any profile or chat; blocking is symmetric and
 deletes the chat; pause profile; selfie verification with a blue check; safety tips and an emergency
 call button; account deletion.
 
@@ -82,7 +92,12 @@ account, upload one test photo and compare the response with `supabase/functions
      PUSH_WEBHOOK_SECRET=<random> \
      MODERATION_WEBHOOK_SECRET=<random> \
      SIGHTENGINE_USER=<id> SIGHTENGINE_SECRET=<secret> \
-     LIVEKIT_URL=wss://<your-project>.livekit.cloud LIVEKIT_API_KEY=<key> LIVEKIT_API_SECRET=<secret>
+     LIVEKIT_URL=wss://<your-project>.livekit.cloud LIVEKIT_API_KEY=<key> LIVEKIT_API_SECRET=<secret> \
+     IPQS_API_KEY=<ipqualityscore key> GOOGLE_VISION_API_KEY=<key> \
+     PERSONA_TEMPLATE_ID=itmpl_... PERSONA_ENVIRONMENT_ID=env_... PERSONA_WEBHOOK_SECRET=<secret> \
+     IDENTITY_HASH_SALT=<long random string — never change it> \
+     STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_... \
+     TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=<token> TWILIO_FROM=+1...
    ```
 5. **Database → Webhooks** — create three webhooks, each with the HTTP header
    `Authorization: Bearer <matching secret>`:
@@ -94,11 +109,21 @@ account, upload one test photo and compare the response with `supabase/functions
    | `public.calls` INSERT | `/functions/v1/push` | `PUSH_WEBHOOK_SECRET` |
    | `storage.objects` INSERT | `/functions/v1/moderate-photo` | `MODERATION_WEBHOOK_SECRET` |
 
+   Also point **Stripe** (events `payment_intent.amount_capturable_updated`, `payment_intent.payment_failed`,
+   `payment_intent.canceled`, `charge.dispute.created`) at `/functions/v1/stripe-webhook`, and **Persona**
+   inquiry events at `/functions/v1/kyc-webhook`.
+
 6. **Scheduled snap cleanup** — enable the `pg_cron` and `pg_net` extensions, then run in the SQL editor:
    ```sql
    select cron.schedule('purge-snaps', '*/5 * * * *', $$
      select net.http_post(
        url := 'https://<project-ref>.supabase.co/functions/v1/purge-snaps',
+       headers := jsonb_build_object('Authorization', 'Bearer <CRON_SECRET>')
+     )
+   $$);
+   select cron.schedule('settle-dates', '*/10 * * * *', $$
+     select net.http_post(
+       url := 'https://<project-ref>.supabase.co/functions/v1/settle-dates',
        headers := jsonb_build_object('Authorization', 'Bearer <CRON_SECRET>')
      )
    $$);
@@ -167,7 +192,7 @@ npm run build:demo                  # one self-contained page: dist-demo/lushdat
 # App: types, lint, unit tests
 cd app && npm run typecheck && npm run lint && npm test
 
-# Database: runs the migration + 66 behavioural checks on a throwaway database.
+# Database: runs the migration + 137 behavioural checks on a throwaway database.
 # Needs a local Postgres 16 with PostGIS 3 (or set PGHOST/PGPORT/PGUSER).
 supabase/tests/run.sh
 

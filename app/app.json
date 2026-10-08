@@ -57,6 +57,13 @@
           "cameraPermission": "LushDate uses the camera for snaps, video calls and selfie verification.",
           "microphonePermission": "LushDate uses the microphone for video calls with your matches."
         }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.lushdate.app",
+          "enableGooglePay": true
+        }
       ]
     ]
   }

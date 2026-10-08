@@ -34,7 +34,7 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const t = useTheme();
-  const { loading, session, profile } = useAuth();
+  const { loading, session, profile, account } = useAuth();
 
   if (!isSupabaseConfigured) {
     return (
@@ -51,6 +51,7 @@ function RootNavigator() {
 
   const signedIn = !!session;
   const onboarded = signedIn && !!profile;
+  const underReview = onboarded && (account?.status === 'frozen' || account?.status === 'banned');
 
   return (
     <Stack
@@ -79,7 +80,11 @@ function RootNavigator() {
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
       </Stack.Protected>
 
-      <Stack.Protected guard={onboarded}>
+      <Stack.Protected guard={underReview}>
+        <Stack.Screen name="under-review" options={{ headerShown: false }} />
+      </Stack.Protected>
+
+      <Stack.Protected guard={onboarded && !underReview}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="profile/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="chat/[matchId]" options={{ title: '' }} />
@@ -96,6 +101,7 @@ function RootNavigator() {
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="verify" options={{ title: 'Get verified' }} />
         <Stack.Screen name="safety" options={{ title: 'Safety' }} />
+        <Stack.Screen name="date/[matchId]" options={{ presentation: 'modal', title: 'Plan a date' }} />
       </Stack.Protected>
     </Stack>
   );

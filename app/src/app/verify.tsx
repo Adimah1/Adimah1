@@ -1,7 +1,8 @@
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { IdVerificationCard } from '@/components/IdVerificationCard';
 import { ImageInput } from '@/components/ImageInput';
 import { Button, Card, Muted, Screen } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
@@ -51,18 +52,21 @@ export default function Verify() {
   if (profile?.verified || status === 'approved') {
     return (
       <Screen edges={['bottom']}>
-        <View style={styles.center}>
-          <Text style={{ fontSize: 64 }}>✅</Text>
-          <Text style={[styles.title, { color: t.text }]}>You’re verified</Text>
-          <Muted center>Your profile shows a blue check so people know you’re real.</Muted>
-        </View>
+        <ScrollView contentContainerStyle={styles.body}>
+          <View style={styles.center}>
+            <Text style={{ fontSize: 64 }}>✅</Text>
+            <Text style={[styles.title, { color: t.text }]}>You’re verified</Text>
+            <Muted center>Your profile shows a blue check so people know you’re real.</Muted>
+          </View>
+          <IdVerificationCard />
+        </ScrollView>
       </Screen>
     );
   }
 
   return (
     <Screen edges={['bottom']}>
-      <View style={styles.body}>
+      <ScrollView contentContainerStyle={styles.body}>
         <Text style={[styles.title, { color: t.text }]}>Show you’re really you</Text>
         <Muted>Verified profiles get a blue check and more matches. Take a selfie copying this pose:</Muted>
         <Card style={styles.pose}>
@@ -97,14 +101,15 @@ export default function Verify() {
             </ImageInput>
           </>
         )}
-      </View>
+        <IdVerificationCard />
+      </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   body: { padding: space.lg, gap: space.lg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.xl },
+  center: { alignItems: 'center', justifyContent: 'center', gap: space.md, padding: space.xl },
   title: { fontSize: 26, fontWeight: '800' },
   pose: { alignItems: 'center', gap: space.sm, paddingVertical: space.xl },
 });

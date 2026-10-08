@@ -21,9 +21,10 @@ import { ProfileTile } from '@/components/ProfileTile';
 import { Button, EmptyState, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { IS_DEMO } from '@/lib/env';
-import { useLocationSync } from '@/lib/location';
+import { lastLocationVerdict, useLocationSync } from '@/lib/location';
 import { usePlus } from '@/lib/purchases';
 import { errorMessage, supabase } from '@/lib/supabase';
+import { locationProblem } from '@/lib/security';
 import { swipeOn } from '@/lib/swipe';
 import { space, useTheme } from '@/lib/theme';
 import type { NearbyProfile } from '@/lib/types';
@@ -49,12 +50,14 @@ export default function Nearby() {
   const [likeCount, setLikeCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
 
   const load = useCallback(
     async (miles: number) => {
       setLoading(true);
       setError(null);
       await sync().catch(() => false);
+      setLocationNote(locationProblem(lastLocationVerdict()));
       const [{ data, error: rpcError }, { data: likes }] = await Promise.all([
         supabase.rpc('nearby_profiles', { radius_mi: miles }),
         supabase.rpc('likes_received_count'),
@@ -166,6 +169,13 @@ export default function Nearby() {
           </View>
         </View>
 
+        {locationNote ? (
+          <View style={[styles.note, { borderColor: t.accent }]}>
+            <Ionicons name="warning" size={18} color={t.accent} />
+            <Text style={{ color: t.text, flex: 1, fontSize: 13, lineHeight: 18 }}>{locationNote}</Text>
+          </View>
+        ) : null}
+
         {empty ? (
           <View style={{ flex: 1 }}>{empty}</View>
         ) : (
@@ -264,6 +274,17 @@ export default function Nearby() {
 }
 
 const styles = StyleSheet.create({
+  note: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    marginHorizontal: space.lg,
+    marginBottom: space.sm,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,197,110,0.08)',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

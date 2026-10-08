@@ -2,12 +2,14 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { supabase } from './supabase';
-import type { Profile } from './types';
+import { PROFILE_COLUMNS, type AccountState, type Profile } from './types';
 
 interface AuthState {
   loading: boolean;
   session: Session | null;
   profile: Profile | null;
+  /** Account standing from the server (a shadowban reads as active). */
+  account: AccountState | null;
   refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -17,6 +19,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [account, setAccount] = useState<AccountState | null>(null);
   const [initialised, setInitialised] = useState(false);
   // The user id the current `profile` value was loaded for, so a fresh sign-in
   // shows a spinner rather than flashing onboarding before the profile arrives.
@@ -25,11 +28,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadProfile = useCallback(async (userId: string | undefined) => {
     if (!userId) {
       setProfile(null);
+      setAccount(null);
       setLoadedFor(null);
       return;
     }
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    const [{ data }, { data: state }] = await Promise.all([
+      supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).maybeSingle(),
+      supabase.rpc('my_account_state'),
+    ]);
     setProfile((data as Profile | null) ?? null);
+    setAccount((state as AccountState | null) ?? null);
     setLoadedFor(userId);
   }, []);
 
@@ -59,13 +67,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       session,
       profile,
+      account,
       refreshProfile: () => loadProfile(session?.user.id),
       signOut: async () => {
         await supabase.auth.signOut();
         setProfile(null);
       },
     }),
-    [loading, session, profile, loadProfile],
+    [loading, session, profile, account, loadProfile],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -163,6 +163,13 @@ export default function Chat() {
           headerRight: () => (
             <View style={styles.headerActions}>
               <Pressable
+                accessibilityLabel="Plan a date"
+                hitSlop={12}
+                onPress={() => router.push({ pathname: '/date/[matchId]', params: { matchId: match.match_id } })}
+              >
+                <Ionicons name="calendar" size={22} color={t.text} />
+              </Pressable>
+              <Pressable
                 accessibilityLabel={isPlus ? `Video call ${match.display_name}` : 'Video call (LushDate+)'}
                 hitSlop={12}
                 onPress={() => (isPlus ? startVideoCall(match.match_id) : offerVideoCallUpgrade(match.display_name))}
@@ -272,20 +279,39 @@ function Bubble({ message, mine, name }: { message: Message; mine: boolean; name
     );
   }
 
+  const notSent = mine && message.held && message.held_reason === 'payment';
+  const warn = !mine && (message.flags?.includes('payment') || message.flags?.includes('contact'));
   return (
-    <View
-      style={[
-        styles.bubble,
-        mine ? styles.mine : styles.theirs,
-        { backgroundColor: mine ? t.primary : t.surfaceRaised },
-      ]}
-    >
-      <Text style={{ color: mine ? '#fff' : t.text, fontSize: 16, lineHeight: 22 }}>{message.body}</Text>
+    <View style={{ gap: 4, alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '78%' }}>
+      <View
+        style={[
+          styles.bubble,
+          { maxWidth: '100%' },
+          mine ? styles.mine : styles.theirs,
+          { backgroundColor: notSent ? t.surface : mine ? t.primary : t.surfaceRaised },
+          notSent ? { borderWidth: 1, borderColor: t.danger } : null,
+        ]}
+      >
+        <Text style={{ color: mine && !notSent ? '#fff' : t.text, fontSize: 16, lineHeight: 22 }}>{message.body}</Text>
+      </View>
+      {notSent ? (
+        <Text style={[styles.note, { color: t.danger, textAlign: 'right' }]}>
+          Not sent · For everyone’s safety, money requests and payment details can’t be shared in chat.
+        </Text>
+      ) : null}
+      {warn ? (
+        <Text style={[styles.note, { color: t.accent }]}>
+          {message.flags?.includes('payment')
+            ? '⚠️ Never send money or gift cards to someone you haven’t met. LushDate will never ask you to.'
+            : '⚠️ Keep chatting on LushDate until you trust someone — it’s where our safety tools work.'}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  note: { fontSize: 12, lineHeight: 16 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
   plusBadge: {
     position: 'absolute',
