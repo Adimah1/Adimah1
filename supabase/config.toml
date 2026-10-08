@@ -1,0 +1,30 @@
+# Supabase CLI project config for LushDate. Only non-default settings are listed.
+project_id = "lushdate"
+
+[auth]
+site_url = "lushdate://"
+additional_redirect_urls = ["lushdate://*"]
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+# Local development only: sign in with this phone number and code, no SMS sent.
+[auth.sms.test_otp]
+15555550100 = "123456"
+
+# These endpoints are called by webhooks/cron/RevenueCat and check a shared
+# secret themselves instead of a user JWT.
+[functions.revenuecat-webhook]
+verify_jwt = false
+
+[functions.purge-snaps]
+verify_jwt = false
+
+[functions.push]
+verify_jwt = false
+
+[functions.moderate-photo]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = true

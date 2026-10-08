@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "LushDate",
+    "slug": "lushdate",
+    "scheme": "lushdate",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2A0A1F"
+    },
+    "ios": {
+      "bundleIdentifier": "com.lushdate.app",
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.lushdate.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#2A0A1F",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "LushDate uses your approximate location to show people nearby. Your exact location is never shared."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "LushDate needs access to your photos so you can add them to your profile.",
+          "cameraPermission": "LushDate uses the camera for snaps and selfie verification.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-notifications"
+    ]
+  }
+}

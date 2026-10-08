@@ -1,4 +1,4 @@
-# Near — MVP Plan
+# LushDate — MVP Plan
 
 > "Snapchat meets Tinder, with a wallet. See who's actually around you."
 
@@ -39,7 +39,7 @@ Everything that doesn't help answer that is deferred.
 | | Incognito / pause profile | Free. Lets users safely leave the feed |
 | | Automated image moderation on upload | Nudity/violence classifier (AWS Rekognition, Hive, or Sightengine) |
 | | Admin moderation queue | A simple internal web page is enough |
-| **Monetization** | **Near+ subscription** (IAP) | See who liked you, unlimited radius, incognito browsing |
+| **Monetization** | **LushDate+ subscription** (IAP) | See who liked you, unlimited radius, incognito browsing |
 | | **Boosts** (IAP consumable) | Shown at top of nearby feeds for 30 min |
 
 ### Explicitly NOT in v1
@@ -115,7 +115,7 @@ Key rules enforced server-side (Row Level Security + Edge Functions):
 | 5 | Like/pass, matches, block/report |
 | 6–7 | Realtime chat, disappearing photos, screenshot handling, push notifications |
 | 8 | Selfie verification, admin moderation page |
-| 9 | RevenueCat: Near+ subscription and boosts, paywall screens |
+| 9 | RevenueCat: LushDate+ subscription and boosts, paywall screens |
 | 10 | Analytics, privacy policy, account deletion, App Store / Play submission |
 | 11–12 | Closed beta in one neighborhood/campus (target 300–500 users) → fix → public city launch |
 
@@ -128,7 +128,7 @@ Key rules enforced server-side (Row Level Security + Edge Functions):
 | Users with ≥ 10 profiles in default radius | > 80% |
 | Day-7 retention | > 25% |
 | Matches that exchange ≥ 5 messages | > 30% |
-| Free → Near+ conversion | > 3% |
+| Free → LushDate+ conversion | > 3% |
 | Reports per 1,000 active users / week | Trending down |
 
 If density and retention are there, build v1.1: stories, panic button/date check-in, and the map view (opt-in, fuzzed).
