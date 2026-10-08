@@ -13,6 +13,11 @@ import { radius, space, useTheme } from '@/lib/theme';
 import { showAlert } from '@/lib/alert';
 
 const PERKS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
+  {
+    icon: 'videocam',
+    title: 'Video calls',
+    body: 'Video call your matches before you meet. Answering is free for everyone.',
+  },
   { icon: 'heart', title: 'See who likes you', body: 'Match instantly with people already into you.' },
   { icon: 'navigate', title: 'Unlimited radius', body: 'Browse up to 100 miles — the whole city and beyond.' },
   { icon: 'eye-off', title: 'Incognito mode', body: 'Only people you like can see you in Nearby.' },

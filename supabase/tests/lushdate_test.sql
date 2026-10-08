@@ -254,4 +254,52 @@ select test.ok(
   (select max(ends_at) - min(starts_at) from public.boosts where user_id = :C) = interval '60 minutes',
   'boosts stack back to back');
 
+
+-- --------------------------------------------------------------- video calls
+select test.login(:E); set role authenticated; select public.swipe(:C, true); reset role;
+select test.login(:C); set role authenticated;
+create temp table cm as select public.swipe(:E, true) as id;
+reset role;
+grant select on cm to authenticated, service_role;
+
+select test.login(:E); set role authenticated;
+select test.throws('select public.start_call((select id from cm))', 'LushDate\+ required', 'starting a video call needs LushDate+');
+reset role;
+
+insert into public.entitlements (user_id, product_id, expires_at) values (:C, 'plus_monthly', now() + interval '30 days');
+select test.login(:C); set role authenticated;
+create temp table c1 as select public.start_call((select id from cm)) as id;
+select test.ok((select id from c1) is not null, 'LushDate+ members can start a call');
+select test.throws('select public.start_call((select id from cm))', 'already in progress', 'one live call per match');
+select test.throws(format('select public.answer_call(%L, true)', (select id from c1)), 'call not found', 'the caller cannot answer their own call');
+reset role;
+grant select on c1 to authenticated, service_role;
+
+select test.login(:D); set role authenticated;
+select test.ok((select count(*) from public.calls) = 0, 'outsiders cannot see calls');
+select test.throws(format('select public.answer_call(%L, true)', (select id from c1)), 'call not found', 'outsiders cannot answer');
+select test.throws(format('select public.start_call(%L)', (select id from cm)), 'LushDate\+ required|match not found', 'outsiders cannot call into a match');
+reset role;
+
+select test.login(:E); set role authenticated;
+select test.ok((select count(*) from public.calls) = 1, 'the person being called can see the call');
+select test.ok(public.answer_call((select id from c1), true) = 'accepted', 'answering is free');
+select public.end_call((select id from c1));
+select test.ok((select status from public.calls where id = (select id from c1)) = 'ended', 'either person can hang up');
+reset role;
+
+select test.login(:C); set role authenticated;
+create temp table c2 as select public.start_call((select id from cm)) as id;
+reset role;
+grant select on c2 to authenticated, service_role;
+update public.calls set created_at = now() - interval '2 minutes' where id = (select id from c2);
+select test.login(:E); set role authenticated;
+select test.ok(public.answer_call((select id from c2), true) = 'missed', 'a call that rang out cannot be answered');
+reset role;
+
+delete from public.entitlements where user_id = :C;
+select test.login(:C); set role authenticated;
+select test.throws('select public.start_call((select id from cm))', 'LushDate\+ required', 'calling stops when LushDate+ lapses');
+reset role;
+
 \echo 'All LushDate schema tests passed.'

@@ -79,6 +79,10 @@ function RootNavigator() {
           options={{ presentation: 'fullScreenModal', headerShown: false, animation: 'fade' }}
         />
         <Stack.Screen name="paywall" options={{ presentation: 'modal', title: 'LushDate+' }} />
+        <Stack.Screen
+          name="call/[callId]"
+          options={{ presentation: 'fullScreenModal', headerShown: false, gestureEnabled: false, animation: 'fade' }}
+        />
         <Stack.Screen name="report/[userId]" options={{ presentation: 'modal', title: 'Report' }} />
         <Stack.Screen name="edit-profile" options={{ title: 'Edit profile' }} />
         <Stack.Screen name="verify" options={{ title: 'Get verified' }} />

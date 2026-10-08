@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/Avatar';
 import { EmptyState, Loading, Screen } from '@/components/ui';
 import { useUserId } from '@/lib/auth';
+import { offerVideoCallUpgrade, startVideoCall } from '@/lib/calls';
+import { usePlus } from '@/lib/purchases';
 import { openSafetyMenu } from '@/lib/safety';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
@@ -38,6 +40,7 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [uploadingSnap, setUploadingSnap] = useState(false);
   const lastScreenshot = useRef(0);
+  const { isPlus } = usePlus(userId);
 
   const upsert = useCallback((msg: Message) => {
     setMessages((cur) => {
@@ -179,13 +182,27 @@ export default function Chat() {
             </Pressable>
           ),
           headerRight: () => (
-            <Pressable
-              accessibilityLabel="Report or block"
-              hitSlop={12}
-              onPress={() => openSafetyMenu(match.other_id, match.display_name, () => router.navigate('/chats'))}
-            >
-              <Ionicons name="ellipsis-horizontal" size={22} color={t.text} />
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable
+                accessibilityLabel={isPlus ? `Video call ${match.display_name}` : 'Video call (LushDate+)'}
+                hitSlop={12}
+                onPress={() => (isPlus ? startVideoCall(match.match_id) : offerVideoCallUpgrade(match.display_name))}
+              >
+                <Ionicons name="videocam" size={24} color={isPlus ? t.primary : t.muted} />
+                {isPlus ? null : (
+                  <View style={[styles.plusBadge, { backgroundColor: t.accent }]}>
+                    <Text style={styles.plusBadgeText}>+</Text>
+                  </View>
+                )}
+              </Pressable>
+              <Pressable
+                accessibilityLabel="Report or block"
+                hitSlop={12}
+                onPress={() => openSafetyMenu(match.other_id, match.display_name, () => router.navigate('/chats'))}
+              >
+                <Ionicons name="ellipsis-horizontal" size={22} color={t.text} />
+              </Pressable>
+            </View>
           ),
         }}
       />
@@ -289,6 +306,18 @@ function Bubble({ message, mine, name }: { message: Message; mine: boolean; name
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 20 },
+  plusBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  plusBadgeText: { color: '#2A0A1F', fontSize: 11, fontWeight: '900', lineHeight: 13 },
   headerTitle: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   bubble: { maxWidth: '78%', borderRadius: radius.lg, paddingHorizontal: 14, paddingVertical: 10 },
   mine: { alignSelf: 'flex-end', borderBottomRightRadius: 6 },

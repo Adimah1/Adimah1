@@ -1,5 +1,5 @@
 // Push notifications for new matches and messages.
-// Wire up two database webhooks (INSERT on public.messages and public.matches)
+// Wire up database webhooks (INSERT on public.messages, public.matches and public.calls)
 // pointing here, with header Authorization: Bearer <PUSH_WEBHOOK_SECRET>.
 // Notification text never includes message content.
 
@@ -10,6 +10,12 @@ interface MessageRow {
   match_id: string;
   sender_id: string;
   kind: 'text' | 'snap' | 'screenshot';
+}
+interface CallRow {
+  id: string;
+  caller_id: string;
+  callee_id: string;
+  status: string;
 }
 interface MatchRow {
   id: string;
@@ -39,7 +45,7 @@ Deno.serve(async (req) => {
   if (!hasSharedSecret(req, 'PUSH_WEBHOOK_SECRET')) {
     return json({ error: 'unauthorized' }, 401);
   }
-  const payload = (await req.json()) as WebhookPayload<MessageRow | MatchRow>;
+  const payload = (await req.json()) as WebhookPayload<MessageRow | MatchRow | CallRow>;
   if (payload.type !== 'INSERT' || !payload.record) {
     return json({ skipped: true });
   }
@@ -53,6 +59,24 @@ Deno.serve(async (req) => {
         title: "It's a match! 💘",
         body: 'Say hi before the moment passes.',
         data: { matchId: match.id },
+      })),
+    );
+    return json({ sent: tokens.length });
+  }
+
+  if (payload.table === 'calls') {
+    const call = payload.record as CallRow;
+    if (call.status !== 'ringing') return json({ skipped: true });
+    const { data: caller } = await admin.from('profiles').select('display_name').eq('id', call.caller_id).single();
+    const tokens = await tokensFor([call.callee_id]);
+    await send(
+      tokens.map((t) => ({
+        to: t.token,
+        title: 'Incoming video call',
+        body: `${caller?.display_name ?? 'Someone'} is video calling you 📹`,
+        sound: 'default',
+        priority: 'high',
+        data: { callId: call.id },
       })),
     );
     return json({ sent: tokens.length });

@@ -31,3 +31,6 @@ verify_jwt = true
 
 [functions.check-photo]
 verify_jwt = true
+
+[functions.call-token]
+verify_jwt = true

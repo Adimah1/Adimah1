@@ -76,6 +76,18 @@ export interface Message {
   created_at: string;
 }
 
+export type CallStatus = 'ringing' | 'accepted' | 'declined' | 'missed' | 'ended';
+
+export interface Call {
+  id: string;
+  match_id: string;
+  caller_id: string;
+  callee_id: string;
+  status: CallStatus;
+  created_at: string;
+  answered_at: string | null;
+}
+
 export const GENDER_LABELS: Record<Gender, string> = {
   woman: 'Women',
   man: 'Men',

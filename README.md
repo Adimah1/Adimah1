@@ -12,7 +12,7 @@ This repository contains the MVP described in [`docs/MVP.md`](docs/MVP.md):
 | `app/` | iOS + Android app (Expo SDK 57, React Native, Expo Router, TypeScript) |
 | `supabase/migrations/` | Postgres schema, privacy rules (RLS), and all server-side logic as SQL functions |
 | `supabase/functions/` | Edge functions: RevenueCat webhook, snap purge, push notifications, photo checks, account deletion |
-| `supabase/tests/` | Behavioural tests for the schema (54 checks) |
+| `supabase/tests/` | Behavioural tests for the schema (66 checks) |
 | `docs/MVP.md` | Product scope, what's deliberately deferred, legal checklist |
 
 ## Features
@@ -29,7 +29,13 @@ within each other's age ranges, who aren't paused, blocked or already swiped.
 **Chat** — realtime text chat plus **snaps**: photos that can be opened once, for 10 seconds, then
 are deleted from storage. Screenshots are blocked on Android and reported to the other person on iOS.
 
-**LushDate+** (subscription via RevenueCat) — see who liked you, 100-mile radius, incognito mode.
+**LushDate+** (subscription via RevenueCat) — video calls, see who liked you, 100-mile radius, incognito mode.
+
+**Video calls** (LushDate+) — matches can video call from the chat screen. Only LushDate+ members can
+*start* a call (enforced by the `start_call` database function); answering is free for everyone. Calls ring
+on the other phone (in-app and by push notification), time out after 45 seconds, and include mute, camera
+on/off and flip camera. Video runs through [LiveKit](https://livekit.io); the `call-token` function only
+gives room access to the two people on an active call.
 **Boosts** (consumable) — top of everyone's feed for 30 minutes.
 
 **Safety** — report (with reasons) and block from any profile or chat; blocking is symmetric and
@@ -75,7 +81,8 @@ account, upload one test photo and compare the response with `supabase/functions
      CRON_SECRET=<random> \
      PUSH_WEBHOOK_SECRET=<random> \
      MODERATION_WEBHOOK_SECRET=<random> \
-     SIGHTENGINE_USER=<id> SIGHTENGINE_SECRET=<secret>
+     SIGHTENGINE_USER=<id> SIGHTENGINE_SECRET=<secret> \
+     LIVEKIT_URL=wss://<your-project>.livekit.cloud LIVEKIT_API_KEY=<key> LIVEKIT_API_SECRET=<secret>
    ```
 5. **Database → Webhooks** — create three webhooks, each with the HTTP header
    `Authorization: Bearer <matching secret>`:
@@ -84,6 +91,7 @@ account, upload one test photo and compare the response with `supabase/functions
    |---|---|---|
    | `public.messages` INSERT | `/functions/v1/push` | `PUSH_WEBHOOK_SECRET` |
    | `public.matches` INSERT | `/functions/v1/push` | `PUSH_WEBHOOK_SECRET` |
+   | `public.calls` INSERT | `/functions/v1/push` | `PUSH_WEBHOOK_SECRET` |
    | `storage.objects` INSERT | `/functions/v1/moderate-photo` | `MODERATION_WEBHOOK_SECRET` |
 
 6. **Scheduled snap cleanup** — enable the `pg_cron` and `pg_net` extensions, then run in the SQL editor:
@@ -96,7 +104,13 @@ account, upload one test photo and compare the response with `supabase/functions
    $$);
    ```
 
-### 2. RevenueCat (payments)
+### 2. LiveKit (video calls)
+
+Create a project at [cloud.livekit.io](https://cloud.livekit.io) (there's a free tier) and copy its
+WebSocket URL, API key and API secret into the `LIVEKIT_*` secrets above. Nothing LiveKit-specific goes in
+the app's `.env`.
+
+### 3. RevenueCat (payments)
 
 1. Create the products in App Store Connect and Google Play:
    a LushDate+ subscription (e.g. `plus_monthly`) and a consumable boost whose id starts with `boost`
@@ -110,7 +124,7 @@ account, upload one test photo and compare the response with `supabase/functions
 The app logs in to RevenueCat with the Supabase user id, and the server's `entitlements` table (written
 only by the webhook) is what actually unlocks features — the client can't grant itself LushDate+.
 
-### 3. The app
+### 4. The app
 
 ```sh
 cd app
@@ -119,7 +133,7 @@ cp .env.example .env   # fill in the Supabase URL + anon key and RevenueCat publ
 npx expo start
 ```
 
-Location, camera, screenshot blocking, push and purchases need a **development build** rather than
+Location, camera, video calls, screenshot blocking, push and purchases need a **development build** rather than
 Expo Go:
 
 ```sh
@@ -153,7 +167,7 @@ npm run build:demo                  # one self-contained page: dist-demo/lushdat
 # App: types, lint, unit tests
 cd app && npm run typecheck && npm run lint && npm test
 
-# Database: runs the migration + 54 behavioural checks on a throwaway database.
+# Database: runs the migration + 66 behavioural checks on a throwaway database.
 # Needs a local Postgres 16 with PostGIS 3 (or set PGHOST/PGPORT/PGUSER).
 supabase/tests/run.sh
 

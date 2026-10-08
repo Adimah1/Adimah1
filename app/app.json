@@ -45,11 +45,19 @@
         "expo-image-picker",
         {
           "photosPermission": "LushDate needs access to your photos so you can add them to your profile.",
-          "cameraPermission": "LushDate uses the camera for snaps and selfie verification.",
-          "microphonePermission": false
+          "cameraPermission": "LushDate uses the camera for snaps, video calls and selfie verification.",
+          "microphonePermission": "LushDate uses the microphone for video calls with your matches."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "@livekit/react-native-expo-plugin",
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "LushDate uses the camera for snaps, video calls and selfie verification.",
+          "microphonePermission": "LushDate uses the microphone for video calls with your matches."
+        }
+      ]
     ]
   }
 }

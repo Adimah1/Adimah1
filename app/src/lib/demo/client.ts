@@ -69,6 +69,7 @@ class DemoDb {
       boosts: [],
       verification_requests: [],
       push_tokens: [],
+      calls: [],
     };
   }
 
@@ -407,6 +408,58 @@ class DemoDb {
             }),
         );
 
+      case 'start_call': {
+        if (!this.hasPlus()) return fail('LushDate+ required');
+        const match = this.tables.matches.find((m) => m.id === args.p_match_id);
+        if (!match) return fail('match not found');
+        if (this.tables.calls.some((c) => c.match_id === match.id && ['ringing', 'accepted'].includes(c.status))) {
+          return fail('a call is already in progress');
+        }
+        const call: Row = {
+          id: uid(),
+          match_id: match.id,
+          caller_id: ME,
+          callee_id: this.otherIn(match),
+          status: 'ringing',
+          created_at: new Date().toISOString(),
+          answered_at: null,
+          ended_at: null,
+        };
+        this.tables.calls.push(call);
+        this.notify('calls', 'INSERT', call);
+        // The pretend person picks up after a few rings.
+        setTimeout(() => {
+          if (call.status !== 'ringing') return;
+          Object.assign(call, { status: 'accepted', answered_at: new Date().toISOString() });
+          this.notify('calls', 'UPDATE', call);
+        }, 3500);
+        return ok(call.id);
+      }
+
+      case 'answer_call': {
+        const call = this.tables.calls.find((c) => c.id === args.p_call_id && c.callee_id === ME);
+        if (!call) return fail('call not found');
+        if (call.status !== 'ringing') return ok(call.status);
+        Object.assign(
+          call,
+          args.accept ? { status: 'accepted', answered_at: new Date().toISOString() } : { status: 'declined' },
+        );
+        this.notify('calls', 'UPDATE', call);
+        return ok(call.status);
+      }
+
+      case 'end_call': {
+        const call = this.tables.calls.find((c) => c.id === args.p_call_id);
+        if (call && ['ringing', 'accepted'].includes(call.status)) {
+          Object.assign(call, {
+            status: call.status === 'ringing' ? 'missed' : 'ended',
+            ended_at: new Date().toISOString(),
+          });
+          this.notify('calls', 'UPDATE', call);
+        }
+        return ok(null);
+      }
+
       case 'grant_boost': {
         const start = new Date();
         this.tables.boosts.push({
@@ -646,6 +699,7 @@ export function createDemoClient(): SupabaseClient {
         if (name === 'delete-account') db.reset();
         // The demo can't analyse photos; the real check runs on the server.
         if (name === 'check-photo') return ok({ ok: true, checked: false });
+        if (name === 'call-token') return ok({ token: 'demo', url: 'demo' });
         return ok({ deleted: true });
       },
     },
