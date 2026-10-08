@@ -1,11 +1,12 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/Avatar';
 import { Button, Card, Muted, Screen } from '@/components/ui';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
+import { showAlert } from '@/lib/alert';
 
 const TIPS = [
   { emoji: '☕', text: 'Meet in a busy public place for the first few dates.' },
@@ -37,7 +38,7 @@ export default function Safety() {
   );
 
   function unblock(person: Blocked) {
-    Alert.alert(
+    showAlert(
       `Unblock ${person.display_name}?`,
       'You may see each other in Nearby again. Your old chat won’t come back.',
       [
@@ -46,7 +47,7 @@ export default function Safety() {
           text: 'Unblock',
           onPress: async () => {
             const { error } = await supabase.rpc('unblock_user', { target: person.id });
-            if (error) Alert.alert('Could not unblock', errorMessage(error));
+            if (error) showAlert('Could not unblock', errorMessage(error));
             load();
           },
         },

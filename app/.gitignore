@@ -42,3 +42,6 @@ yarn-error.*
 
 # secrets
 .env
+
+# demo page build output
+dist-demo/

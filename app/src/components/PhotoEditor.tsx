@@ -2,11 +2,12 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import { errorMessage, photoUrl } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
 import { uploadImage } from '@/lib/upload';
+import { showAlert } from '@/lib/alert';
 
 export const MAX_PHOTOS = 6;
 
@@ -36,14 +37,14 @@ export function PhotoEditor({
       const path = await uploadImage('photos', userId, result.assets[0]);
       onChange([...photos, path]);
     } catch (e) {
-      Alert.alert('Upload failed', errorMessage(e));
+      showAlert('Upload failed', errorMessage(e));
     } finally {
       setUploading(false);
     }
   }
 
   function remove(path: string) {
-    Alert.alert('Remove photo?', undefined, [
+    showAlert('Remove photo?', undefined, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => onChange(photos.filter((p) => p !== path)) },
     ]);

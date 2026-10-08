@@ -1,12 +1,13 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, Muted, Screen } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
 import { uploadImage } from '@/lib/upload';
+import { showAlert } from '@/lib/alert';
 
 type Status = 'none' | 'pending' | 'approved' | 'rejected';
 
@@ -35,7 +36,7 @@ export default function Verify() {
   async function takeSelfie() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Camera access needed', 'Allow camera access in Settings to get verified.');
+      showAlert('Camera access needed', 'Allow camera access in Settings to get verified.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -51,7 +52,7 @@ export default function Verify() {
       if (error) throw error;
       setStatus('pending');
     } catch (e) {
-      Alert.alert('Could not submit', errorMessage(e));
+      showAlert('Could not submit', errorMessage(e));
     } finally {
       setBusy(false);
     }

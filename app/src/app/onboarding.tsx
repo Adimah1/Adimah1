@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { MAX_PHOTOS, PhotoEditor } from '@/components/PhotoEditor';
 import { Button, Chip, Field, Muted, Screen, Title } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
+import { IS_DEMO } from '@/lib/env';
 import { ageFrom, parseBirthdate } from '@/lib/format';
 import { useLocationSync } from '@/lib/location';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
 import { GENDER_LABELS, GENDER_SELF_LABELS, LOOKING_FOR_LABELS, type Gender, type LookingFor } from '@/lib/types';
+import { showAlert } from '@/lib/alert';
 
 const MIN_PHOTOS = 2;
 const STEPS = ['name', 'birthday', 'gender', 'interested', 'about', 'photos', 'location'] as const;
@@ -64,7 +66,7 @@ export default function Onboarding() {
     });
     if (error) {
       setSaving(false);
-      Alert.alert('Could not create your profile', errorMessage(error));
+      showAlert('Could not create your profile', errorMessage(error));
       return;
     }
     try {
@@ -185,6 +187,13 @@ export default function Onboarding() {
                 automatically — no nudity.
               </Muted>
               <PhotoEditor userId={userId} photos={photos} onChange={setPhotos} />
+              {IS_DEMO ? (
+                <Button
+                  title="Use sample photos (demo)"
+                  variant="secondary"
+                  onPress={() => setPhotos([0, 1, 2].map((n) => `demo/me-${gender ?? 'woman'}/${n}`))}
+                />
+              ) : null}
             </>
           )}
 

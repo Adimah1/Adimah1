@@ -121,6 +121,18 @@ npx eas-cli@latest build --profile development --platform ios   # or android
 
 Push notifications need an EAS project id (`npx eas-cli@latest init` adds it to `app.json`).
 
+## Demo mode
+
+`EXPO_PUBLIC_DEMO=1` swaps Supabase for an in-memory backend (`app/src/lib/demo/`) with pretend people,
+illustrated portraits, auto-replies, a view-once snap and fake purchases, so the app can be tried with no
+accounts at all. Sign in with any phone number and the code `123456`.
+
+```sh
+cd app
+EXPO_PUBLIC_DEMO=1 npx expo start   # try it on a phone with Expo Go, or press w for the browser
+npm run build:demo                  # one self-contained page: dist-demo/lushdate-demo.html
+```
+
 ## Moderation (until there's an admin panel)
 
 - **Reports**: Supabase Table Editor → `reports` (filter `status = open`). Set `status` to

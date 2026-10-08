@@ -1,12 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import Purchases from 'react-native-purchases';
 
 import { Avatar } from '@/components/Avatar';
 import { Button, Card, Screen } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
+import { IS_DEMO } from '@/lib/env';
 import { ageFrom } from '@/lib/format';
 import {
   BOOST_OFFERING,
@@ -19,6 +20,7 @@ import {
 import { unregisterPush } from '@/lib/push';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
+import { showAlert } from '@/lib/alert';
 
 export default function Me() {
   const t = useTheme();
@@ -62,13 +64,21 @@ export default function Me() {
       .from('profiles')
       .update({ [field]: value })
       .eq('id', userId);
-    if (error) Alert.alert('Could not update', errorMessage(error));
+    if (error) showAlert('Could not update', errorMessage(error));
     refreshProfile();
   }
 
   async function boost() {
+    if (IS_DEMO) {
+      setBoosting(true);
+      await supabase.rpc('grant_boost', { p_user: userId, p_transaction_id: 'demo', p_minutes: 30 });
+      await loadBoost();
+      setBoosting(false);
+      showAlert('Boost active ⚡', 'You’re at the top of Nearby for 30 minutes. (Demo: no charge.)');
+      return;
+    }
     if (!purchasesAvailable) {
-      Alert.alert('Boosts unavailable', 'Purchases aren’t available in this build.');
+      showAlert('Boosts unavailable', 'Purchases aren’t available in this build.');
       return;
     }
     setBoosting(true);
@@ -76,13 +86,13 @@ export default function Me() {
       const offerings = await Purchases.getOfferings();
       const pkg = offerings.all[BOOST_OFFERING]?.availablePackages[0];
       if (!pkg) {
-        Alert.alert('Boosts unavailable', 'Please try again later.');
+        showAlert('Boosts unavailable', 'Please try again later.');
         return;
       }
       await Purchases.purchasePackage(pkg);
       await waitForServer(loadBoost);
     } catch (e) {
-      if (!isCancelled(e)) Alert.alert('Boost failed', errorMessage(e));
+      if (!isCancelled(e)) showAlert('Boost failed', errorMessage(e));
     } finally {
       setBoosting(false);
     }
@@ -95,7 +105,7 @@ export default function Me() {
   }
 
   function deleteAccount() {
-    Alert.alert(
+    showAlert(
       'Delete your account?',
       'Your profile, matches and messages will be permanently deleted. This can’t be undone. Cancel any subscription in your app store settings first.',
       [
@@ -107,7 +117,7 @@ export default function Me() {
             await unregisterPush();
             const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
             if (error) {
-              Alert.alert('Could not delete account', errorMessage(error));
+              showAlert('Could not delete account', errorMessage(error));
               return;
             }
             await resetPurchases();

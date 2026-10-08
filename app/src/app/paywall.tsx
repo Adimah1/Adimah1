@@ -1,19 +1,27 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
 
 import { Button, Muted, Screen } from '@/components/ui';
 import { useUserId } from '@/lib/auth';
 import { hasPlus, isCancelled, purchasesAvailable, usePlus, waitForServer } from '@/lib/purchases';
-import { errorMessage } from '@/lib/supabase';
+import { IS_DEMO } from '@/lib/env';
+import { errorMessage, supabase } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
+import { showAlert } from '@/lib/alert';
 
 const PERKS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
   { icon: 'heart', title: 'See who likes you', body: 'Match instantly with people already into you.' },
   { icon: 'navigate', title: 'Unlimited radius', body: 'Browse up to 100 miles — the whole city and beyond.' },
   { icon: 'eye-off', title: 'Incognito mode', body: 'Only people you like can see you in Nearby.' },
+];
+
+const DEMO_PLANS = [
+  { id: 'plus_weekly', title: '1 week', note: 'Try it out', price: '$6.99' },
+  { id: 'plus_monthly', title: '1 month', note: 'Most popular', price: '$14.99' },
+  { id: 'plus_quarterly', title: '3 months', note: 'Save 33%', price: '$29.99' },
 ];
 
 export default function Paywall() {
@@ -23,6 +31,7 @@ export default function Paywall() {
   const [packages, setPackages] = useState<PurchasesPackage[] | null>(null);
   const [selected, setSelected] = useState<PurchasesPackage | null>(null);
   const [busy, setBusy] = useState(false);
+  const [demoPlan, setDemoPlan] = useState(DEMO_PLANS[1].id);
 
   useEffect(() => {
     if (!purchasesAvailable) return;
@@ -44,14 +53,29 @@ export default function Paywall() {
       await Purchases.purchasePackage(selected);
       const ok = await waitForServer(serverHasPlus);
       if (!ok) {
-        Alert.alert('Almost there', 'Your purchase went through. It can take a minute for LushDate+ to switch on.');
+        showAlert('Almost there', 'Your purchase went through. It can take a minute for LushDate+ to switch on.');
       }
       router.back();
     } catch (e) {
-      if (!isCancelled(e)) Alert.alert('Purchase failed', errorMessage(e));
+      if (!isCancelled(e)) showAlert('Purchase failed', errorMessage(e));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function demoBuy() {
+    setBusy(true);
+    await supabase.from('entitlements').upsert({
+      user_id: userId,
+      product_id: demoPlan,
+      expires_at: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+    });
+    setBusy(false);
+    showAlert(
+      'Welcome to LushDate+ 💎',
+      'This is the demo, so you weren’t charged. All LushDate+ features are now unlocked.',
+      [{ text: 'Great', onPress: () => router.back() }],
+    );
   }
 
   async function restore() {
@@ -59,13 +83,13 @@ export default function Paywall() {
     try {
       await Purchases.restorePurchases();
       const ok = await waitForServer(serverHasPlus, 4);
-      Alert.alert(
+      showAlert(
         ok ? 'Restored' : 'Nothing to restore',
         ok ? 'LushDate+ is active.' : 'No active subscription was found.',
       );
       if (ok) router.back();
     } catch (e) {
-      Alert.alert('Restore failed', errorMessage(e));
+      showAlert('Restore failed', errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -94,6 +118,27 @@ export default function Paywall() {
 
         {isPlus ? (
           <Text style={[styles.active, { color: t.success }]}>✓ LushDate+ is active on your account</Text>
+        ) : IS_DEMO ? (
+          <View style={{ gap: space.sm }}>
+            {DEMO_PLANS.map((plan) => (
+              <Pressable
+                key={plan.id}
+                onPress={() => setDemoPlan(plan.id)}
+                style={[
+                  styles.plan,
+                  { borderColor: demoPlan === plan.id ? t.primary : t.border, backgroundColor: t.surface },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: t.text, fontWeight: '700', fontSize: 16 }}>{plan.title}</Text>
+                  <Muted>{plan.note}</Muted>
+                </View>
+                <Text style={{ color: t.text, fontWeight: '800', fontSize: 16 }}>{plan.price}</Text>
+              </Pressable>
+            ))}
+            <Button title="Continue" onPress={demoBuy} loading={busy} />
+            <Muted center>Demo: no real payment is taken.</Muted>
+          </View>
         ) : !purchasesAvailable ? (
           <Muted center>
             Purchases aren’t available in this build. Use a development or store build with RevenueCat configured.

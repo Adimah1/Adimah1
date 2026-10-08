@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
-import { Alert } from 'react-native';
 
 import { errorMessage, supabase } from './supabase';
+import { showAlert } from './alert';
 
 /** The "…" menu on profiles and chats: report or block someone. */
 export function openSafetyMenu(userId: string, name: string, onBlocked: () => void) {
-  Alert.alert(name, undefined, [
+  showAlert(name, undefined, [
     {
       text: `Report ${name}`,
       onPress: () => router.push({ pathname: '/report/[userId]', params: { userId, name } }),
@@ -16,7 +16,7 @@ export function openSafetyMenu(userId: string, name: string, onBlocked: () => vo
 }
 
 export function confirmBlock(userId: string, name: string, onBlocked: () => void) {
-  Alert.alert(
+  showAlert(
     `Block ${name}?`,
     'You won’t see each other anywhere on LushDate, and your chat will be deleted. They won’t be told.',
     [
@@ -27,7 +27,7 @@ export function confirmBlock(userId: string, name: string, onBlocked: () => void
         onPress: async () => {
           const { error } = await supabase.rpc('block_user', { target: userId });
           if (error) {
-            Alert.alert('Could not block', errorMessage(error));
+            showAlert('Could not block', errorMessage(error));
             return;
           }
           onBlocked();

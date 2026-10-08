@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Button, EmptyState, Loading, Screen } from '@/components/ui';
@@ -11,6 +11,7 @@ import { openSafetyMenu } from '@/lib/safety';
 import { errorMessage, photoUrl, supabase } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
 import { LOOKING_FOR_LABELS, type PublicProfile } from '@/lib/types';
+import { showAlert } from '@/lib/alert';
 
 export default function ProfileScreen() {
   const t = useTheme();
@@ -33,13 +34,13 @@ export default function ProfileScreen() {
     const { data: matchId, error } = await supabase.rpc('swipe', { target: profile.id, liked });
     setBusy(false);
     if (error) {
-      Alert.alert('Something went wrong', errorMessage(error));
+      showAlert('Something went wrong', errorMessage(error));
       return;
     }
     if (liked) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
     if (matchId) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-      Alert.alert('It’s a match! 💘', `You and ${profile.display_name} like each other.`, [
+      showAlert('It’s a match! 💘', `You and ${profile.display_name} like each other.`, [
         { text: 'Keep browsing', style: 'cancel', onPress: () => router.back() },
         {
           text: 'Say hi',

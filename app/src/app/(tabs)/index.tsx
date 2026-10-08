@@ -5,6 +5,7 @@ import { FlatList, Linking, RefreshControl, ScrollView, StyleSheet, Text, View }
 import { ProfileTile } from '@/components/ProfileTile';
 import { Button, Chip, EmptyState, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { IS_DEMO } from '@/lib/env';
 import { distanceLabel } from '@/lib/format';
 import { useLocationSync } from '@/lib/location';
 import { usePlus } from '@/lib/purchases';
@@ -108,7 +109,10 @@ export default function Nearby() {
     <Screen edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.heading, { color: t.text }]}>Nearby</Text>
-        <Text style={{ color: t.muted }}>{people.filter((p) => p.active_now).length} active now</Text>
+        <Text style={{ color: t.muted }}>
+          {IS_DEMO ? 'Demo · ' : ''}
+          {people.filter((p) => p.active_now).length} active now
+        </Text>
       </View>
       <ScrollView
         horizontal

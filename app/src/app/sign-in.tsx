@@ -1,13 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button, Field } from '@/components/ui';
+import { IS_DEMO } from '@/lib/env';
 import { toE164 } from '@/lib/format';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { space } from '@/lib/theme';
+import { showAlert } from '@/lib/alert';
 
 export default function SignIn() {
   const [phoneInput, setPhoneInput] = useState('');
@@ -18,7 +20,7 @@ export default function SignIn() {
   async function sendCode() {
     const e164 = toE164(phoneInput);
     if (!e164) {
-      Alert.alert(
+      showAlert(
         'Check your number',
         'Enter a mobile number, including the country code if you are outside the US (e.g. +44…).',
       );
@@ -28,7 +30,7 @@ export default function SignIn() {
     const { error } = await supabase.auth.signInWithOtp({ phone: e164 });
     setBusy(false);
     if (error) {
-      Alert.alert('Could not send code', errorMessage(error));
+      showAlert('Could not send code', errorMessage(error));
       return;
     }
     setPhone(e164);
@@ -39,7 +41,7 @@ export default function SignIn() {
     setBusy(true);
     const { error } = await supabase.auth.verifyOtp({ phone, token: code.trim(), type: 'sms' });
     setBusy(false);
-    if (error) Alert.alert('That code didn’t work', errorMessage(error));
+    if (error) showAlert('That code didn’t work', errorMessage(error));
     // On success the auth guard in _layout moves on to onboarding or the app.
   }
 
@@ -54,6 +56,15 @@ export default function SignIn() {
             <Text style={styles.brand}>LushDate</Text>
             <Text style={styles.tagline}>See who’s actually around you.{'\n'}Chat in moments that vanish.</Text>
           </View>
+
+          {IS_DEMO ? (
+            <View style={styles.demo}>
+              <Text style={styles.demoTitle}>Demo version</Text>
+              <Text style={styles.demoBody}>
+                Use any phone number. The code is 123456. Everyone you meet here is pretend.
+              </Text>
+            </View>
+          ) : null}
 
           {phone === null ? (
             <View style={styles.form}>
@@ -116,4 +127,14 @@ const styles = StyleSheet.create({
   tagline: { color: '#F6CFE0', fontSize: 17, textAlign: 'center', lineHeight: 24 },
   form: { gap: space.md, marginBottom: space.lg },
   fine: { color: '#C9A3B6', fontSize: 12, textAlign: 'center', lineHeight: 17 },
+  demo: {
+    backgroundColor: 'rgba(255,197,110,0.14)',
+    borderColor: '#FFC56E',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: space.md,
+    gap: 4,
+  },
+  demoTitle: { color: '#FFC56E', fontWeight: '800', fontSize: 15 },
+  demoBody: { color: '#F6CFE0', fontSize: 14, lineHeight: 20 },
 });

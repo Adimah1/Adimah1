@@ -1,11 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button, Chip, Field, Muted, Screen } from '@/components/ui';
 import { confirmBlock } from '@/lib/safety';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { space } from '@/lib/theme';
+import { showAlert } from '@/lib/alert';
 
 const REASONS = [
   { id: 'fake_profile', label: 'Fake profile' },
@@ -30,10 +31,10 @@ export default function Report() {
     const { error } = await supabase.from('reports').insert({ reported_id: userId, reason, details: details.trim() });
     setBusy(false);
     if (error) {
-      Alert.alert('Report not sent', errorMessage(error));
+      showAlert('Report not sent', errorMessage(error));
       return;
     }
-    Alert.alert('Thanks for telling us', `Our team will review this. Do you also want to block ${who}?`, [
+    showAlert('Thanks for telling us', `Our team will review this. Do you also want to block ${who}?`, [
       { text: 'Not now', style: 'cancel', onPress: () => router.back() },
       { text: 'Block', style: 'destructive', onPress: () => confirmBlock(userId, who, () => router.dismissAll()) },
     ]);

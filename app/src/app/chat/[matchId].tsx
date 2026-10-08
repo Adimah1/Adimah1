@@ -5,7 +5,6 @@ import * as ScreenCapture from 'expo-screen-capture';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +24,7 @@ import { errorMessage, supabase } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
 import type { MatchSummary, Message } from '@/lib/types';
 import { uploadImage } from '@/lib/upload';
+import { showAlert } from '@/lib/alert';
 
 export default function Chat() {
   const t = useTheme();
@@ -103,7 +103,7 @@ export default function Chat() {
       .single();
     setSending(false);
     if (error) {
-      Alert.alert('Message not sent', errorMessage(error));
+      showAlert('Message not sent', errorMessage(error));
       return;
     }
     setText('');
@@ -111,7 +111,7 @@ export default function Chat() {
   }
 
   function chooseSnap() {
-    Alert.alert('Send a snap', 'It disappears after one view (or 24 hours unopened).', [
+    showAlert('Send a snap', 'It disappears after one view (or 24 hours unopened).', [
       { text: 'Take photo', onPress: () => sendSnap('camera') },
       { text: 'Choose from library', onPress: () => sendSnap('library') },
       { text: 'Cancel', style: 'cancel' },
@@ -124,7 +124,7 @@ export default function Chat() {
     if (source === 'camera') {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Camera access needed', 'Allow camera access in Settings to send snaps.');
+        showAlert('Camera access needed', 'Allow camera access in Settings to send snaps.');
         return;
       }
       result = await ImagePicker.launchCameraAsync(options);
@@ -144,7 +144,7 @@ export default function Chat() {
       if (error) throw error;
       upsert(data as Message);
     } catch (e) {
-      Alert.alert('Snap not sent', errorMessage(e));
+      showAlert('Snap not sent', errorMessage(e));
     } finally {
       setUploadingSnap(false);
     }

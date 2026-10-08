@@ -9,4 +9,7 @@ export const REVENUECAT_KEY =
     android: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY,
   }) ?? '';
 
-export const isSupabaseConfigured = SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0;
+/** Demo mode: an in-memory backend with pretend people, for previewing the app. */
+export const IS_DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
+
+export const isSupabaseConfigured = IS_DEMO || (SUPABASE_URL.length > 0 && SUPABASE_ANON_KEY.length > 0);

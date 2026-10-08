@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PhotoEditor } from '@/components/PhotoEditor';
 import { Button, Chip, Field, Screen } from '@/components/ui';
@@ -8,6 +8,7 @@ import { useAuth, useUserId } from '@/lib/auth';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
 import { GENDER_LABELS, LOOKING_FOR_LABELS, type Gender, type LookingFor } from '@/lib/types';
+import { showAlert } from '@/lib/alert';
 
 export default function EditProfile() {
   const t = useTheme();
@@ -38,7 +39,7 @@ export default function EditProfile() {
       .eq('id', userId);
     setSaving(false);
     if (error) {
-      Alert.alert('Could not save', errorMessage(error));
+      showAlert('Could not save', errorMessage(error));
       return;
     }
     await refreshProfile();
