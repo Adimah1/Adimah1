@@ -34,3 +34,28 @@ verify_jwt = true
 
 [functions.call-token]
 verify_jwt = true
+
+[functions.report-location]
+verify_jwt = true
+
+[functions.date-deposit]
+verify_jwt = true
+
+[functions.date-check-in]
+verify_jwt = true
+
+[functions.kyc-start]
+verify_jwt = true
+
+[functions.panic]
+verify_jwt = true
+
+# Called by Stripe, Persona and the scheduler; they check signatures/secrets.
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.kyc-webhook]
+verify_jwt = false
+
+[functions.settle-dates]
+verify_jwt = false

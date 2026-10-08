@@ -3,6 +3,7 @@
 \set QUIET 1
 \pset tuples_only on
 \pset format unaligned
+\o /dev/null
 
 create schema test;
 grant usage on schema test to authenticated, service_role;
@@ -94,17 +95,15 @@ insert into public.entitlements (user_id, product_id, expires_at) values (:G, 'p
 
 -- ----------------------------------------------------------------- locations
 -- A at lower Manhattan; others offset north.
-select test.login(:A); set role authenticated;
-select public.update_location(40.712800, -74.006000);
-reset role;
+select test.ok((public.record_location(:A, 40.712800, -74.006000, '{}') ->> 'verdict') = 'ok', 'location accepted');
 
-select test.login(:B); set role authenticated; select public.update_location(40.7200, -74.0060); reset role; -- ~0.5 mi
-select test.login(:C); set role authenticated; select public.update_location(40.7560, -74.0060); reset role; -- ~3 mi
-select test.login(:D); set role authenticated; select public.update_location(40.8290, -74.0060); reset role; -- ~8 mi
-select test.login(:E); set role authenticated; select public.update_location(40.7130, -74.0050); reset role;
-select test.login(:F); set role authenticated; select public.update_location(40.7130, -74.0050); reset role;
-select test.login(:G); set role authenticated; select public.update_location(40.7130, -74.0050); reset role;
-select test.login(:K); set role authenticated; select public.update_location(40.7130, -74.0050); reset role;
+select test.ok((public.record_location(:B, 40.7200, -74.0060, '{}') ->> 'verdict') = 'ok', 'location accepted'); -- ~0.5 mi
+select test.ok((public.record_location(:C, 40.7560, -74.0060, '{}') ->> 'verdict') = 'ok', 'location accepted'); -- ~3 mi
+select test.ok((public.record_location(:D, 40.8290, -74.0060, '{}') ->> 'verdict') = 'ok', 'location accepted'); -- ~8 mi
+select test.ok((public.record_location(:E, 40.7130, -74.0050, '{}') ->> 'verdict') = 'ok', 'location accepted');
+select test.ok((public.record_location(:F, 40.7130, -74.0050, '{}') ->> 'verdict') = 'ok', 'location accepted');
+select test.ok((public.record_location(:G, 40.7130, -74.0050, '{}') ->> 'verdict') = 'ok', 'location accepted');
+select test.ok((public.record_location(:K, 40.7130, -74.0050, '{}') ->> 'verdict') = 'ok', 'location accepted');
 
 select test.ok(
   (select extensions.st_y(geo::extensions.geometry) from public.locations where user_id = :A)
@@ -300,6 +299,225 @@ reset role;
 delete from public.entitlements where user_id = :C;
 select test.login(:C); set role authenticated;
 select test.throws('select public.start_call((select id from cm))', 'LushDate\+ required', 'calling stops when LushDate+ lapses');
+reset role;
+
+
+-- ======================================================== trust & safety
+\set X '''a0000000-0000-0000-0000-0000000000a1'''
+\set R1 '''a0000000-0000-0000-0000-0000000000a2'''
+\set R2 '''a0000000-0000-0000-0000-0000000000a3'''
+\set R3 '''a0000000-0000-0000-0000-0000000000a4'''
+\set Y '''a0000000-0000-0000-0000-0000000000a5'''
+\set Z '''a0000000-0000-0000-0000-0000000000a6'''
+\set M '''a0000000-0000-0000-0000-0000000000a7'''
+\set P '''a0000000-0000-0000-0000-0000000000a8'''
+\set Q '''a0000000-0000-0000-0000-0000000000a9'''
+\set L '''a0000000-0000-0000-0000-0000000000b1'''
+\set BAN '''a0000000-0000-0000-0000-0000000000b2'''
+\set EV '''a0000000-0000-0000-0000-0000000000b3'''
+
+insert into auth.users (id) select x::uuid from unnest(array[:X, :R1, :R2, :R3, :Y, :Z, :M, :P, :Q, :L, :BAN, :EV]) x;
+insert into public.profiles (id, display_name, birthdate, gender, interested_in, photos)
+select x::uuid, 'User', '1995-01-01', 'woman', '{man,woman,nonbinary}', array[x || '/1.jpg']
+from unnest(array[:X, :R1, :R2, :R3, :Y, :Z, :M, :P, :Q, :L, :BAN, :EV]) x;
+
+-- ---------------------------------------------------------------- detectors
+select test.ok(public.mentions_payment('can you send me $50 on cash app'), 'detects cash app requests');
+select test.ok(public.mentions_payment('my $cashtag is $sweetkate'), 'detects cashtags');
+select test.ok(public.mentions_payment('I need a steam card for my mom'), 'detects gift card scams');
+select test.ok(not public.mentions_payment('dinner is on me, $20 tops lol'), 'ignores ordinary talk about money');
+select test.ok(public.mentions_contact('text me 555-123-4567'), 'detects phone numbers');
+select test.ok(public.mentions_contact('add me on whatsapp'), 'detects off-platform apps');
+select test.ok(not public.mentions_contact('see you at 7 at the cafe'), 'ignores ordinary messages');
+
+-- ------------------------------------------------------- rapid-report freeze
+select test.login(:R1); set role authenticated;
+insert into public.reports (reported_id, reason) values (:X, 'scam');
+reset role;
+select test.login(:R2); set role authenticated;
+insert into public.reports (reported_id, reason) values (:X, 'fake_profile');
+reset role;
+select test.ok((select account_status from public.profiles where id = :X) = 'active', 'two reports do not freeze');
+select test.login(:R3); set role authenticated;
+insert into public.reports (reported_id, reason) values (:X, 'harassment');
+reset role;
+select test.ok((select account_status from public.profiles where id = :X) = 'frozen', 'three reporters in 24h freeze the account');
+
+select test.login(:X); set role authenticated;
+select test.ok(public.my_account_state() ->> 'status' = 'frozen', 'frozen users are told their account is under review');
+select test.throws(format('select public.swipe(%L, true)', :Y), 'under review', 'frozen users cannot swipe');
+select test.throws('select risk_score from public.profiles', 'permission denied', 'users cannot read risk scores');
+select public.submit_appeal('That was not me, please check');
+select test.ok((public.my_account_state() ->> 'appeal_open')::boolean, 'frozen users can appeal');
+reset role;
+
+set role service_role;
+select public.review_account(:X, 'restore', 'false positive');
+reset role;
+select test.ok((select account_status from public.profiles where id = :X) = 'active', 'a reviewer can restore an account');
+select test.ok((select status from public.appeals where user_id = :X) = 'accepted', 'restoring accepts the appeal');
+
+-- ---------------------------------------------------------------- shadowban
+select test.login(:Y); set role authenticated; select public.swipe(:Z, true); reset role;
+select test.login(:Z); set role authenticated;
+create temp table yz as select public.swipe(:Y, true) as id;
+reset role;
+grant select on yz to authenticated, service_role;
+select test.ok((select id from yz) is not null, 'Y and Z match');
+
+set role service_role;
+select test.ok(public.apply_risk(:Y, 'test_signal', 65) = 65, 'risk is scored');
+reset role;
+select test.ok((select account_status from public.profiles where id = :Y) = 'shadowbanned', 'risk 60+ shadowbans');
+
+select test.login(:Y); set role authenticated;
+select test.ok(public.my_account_state() ->> 'status' = 'active', 'a shadowban is never revealed');
+insert into public.messages (match_id, sender_id, body) select id, :Y, 'hello there' from yz;
+select test.ok((select count(*) from public.messages where match_id = (select id from yz)) = 1, 'shadowbanned sender sees their message');
+select public.swipe(:M, true);
+reset role;
+select test.login(:Z); set role authenticated;
+select test.ok((select count(*) from public.messages where match_id = (select id from yz)) = 0, 'recipient never sees a shadowbanned message');
+reset role;
+select test.login(:M); set role authenticated;
+select test.ok(public.swipe(:Y, true) is null, 'shadowbanned accounts never get new matches');
+select test.ok(not exists (select 1 from public.get_public_profile(:Y)), 'shadowbanned profiles are hidden from non-matches');
+reset role;
+
+-- --------------------------------------------------------- message screening
+select test.login(:M); set role authenticated; select public.swipe(:R1, true); reset role;
+select test.login(:R1); set role authenticated;
+create temp table mr as select public.swipe(:M, true) as id;
+reset role;
+grant select on mr to authenticated, service_role;
+
+select test.login(:M); set role authenticated;
+insert into public.messages (match_id, sender_id, body) select id, :M, 'babe can you send me $200 on cash app, my card is blocked' from mr;
+insert into public.messages (match_id, sender_id, body) select id, :M, 'add me on whatsapp' from mr;
+select test.ok((select held_reason from public.messages where body like 'babe%') = 'payment', 'money requests from new accounts are held');
+reset role;
+select test.login(:R1); set role authenticated;
+select test.ok((select count(*) from public.messages where match_id = (select id from mr)) = 1, 'held money requests never reach the recipient');
+select test.ok((select flags from public.messages where match_id = (select id from mr)) = '{contact}', 'contact sharing is delivered with a safety flag');
+reset role;
+select test.ok(exists (select 1 from public.risk_events where user_id = :M and kind = 'payment_mention'), 'money requests add risk');
+
+-- --------------------------------------------------------- location integrity
+select test.ok((public.record_location(:L, 40.7128, -74.0060, '{"accuracy_m": 20}') ->> 'verdict') = 'ok', 'clean location accepted');
+select test.ok((public.record_location(:L, 40.7300, -74.0000, '{"mocked": true}') ->> 'verdict') = 'rejected', 'mock locations are rejected');
+select test.ok(
+  (select extensions.st_y(geo::extensions.geometry) from public.locations where user_id = :L) = round(40.7128 / 0.004) * 0.004,
+  'a rejected ping does not move the stored location');
+select test.ok(public.record_location(:L, 51.5074, -0.1278, '{}') -> 'reasons' ? 'impossible_travel', 'teleporting across the ocean is rejected');
+select test.ok((public.record_location(:L, 40.7130, -74.0050, '{"vpn": true}') ->> 'verdict') = 'suspect', 'VPN users are allowed but marked suspect');
+select test.ok(not (select verified from public.locations where user_id = :L), 'suspect locations are not marked verified');
+select public.record_location(:L, 40.7130, -74.0050, '{"attestation": "failed"}');
+select test.ok((select account_status from public.profiles where id = :L) = 'frozen', 'repeated spoofing freezes the account');
+select test.ok((public.record_location(:L, 40.7130, -74.0050, '{}') ->> 'verdict') = 'rejected', 'frozen accounts cannot update location');
+
+select test.login(:A); set role authenticated;
+select test.throws('select public.update_location(40.7, -74.0)', 'permission denied', 'clients cannot bypass location checks');
+reset role;
+
+-- --------------------------------------------------------------- identity
+set role service_role;
+select test.ok(public.set_kyc_result(:P, 'approved', 'inq_1', 'hash-person-p') = 'approved', 'KYC approval');
+select test.ok(public.set_kyc_result(:Q, 'approved', 'inq_2', 'hash-person-q') = 'approved', 'KYC approval (second person)');
+select test.ok(public.set_kyc_result(:EV, 'approved', 'inq_3', 'hash-person-p') = 'duplicate', 'the same ID on a second account is refused');
+reset role;
+select test.ok((select verification_tier from public.profiles where id = :P) = 2, 'KYC unlocks tier 2');
+select test.ok((select kyc_status from public.profiles where id = :EV) = 'rejected', 'duplicate identity is rejected');
+
+update public.profiles set account_status = 'banned' where id = :BAN;
+insert into public.devices (device_hash, user_id) values (repeat('ab', 32), :BAN);
+select test.login(:EV); set role authenticated;
+select public.register_device(repeat('ab', 32));
+reset role;
+select test.ok((select account_status from public.profiles where id = :EV) = 'frozen', 'a banned person’s device freezes new accounts (ban evasion)');
+
+-- ------------------------------------------------------------ date deposits
+select test.login(:P); set role authenticated; select public.swipe(:Q, true); reset role;
+select test.login(:Q); set role authenticated;
+create temp table pq as select public.swipe(:P, true) as id;
+reset role;
+grant select on pq to authenticated, service_role;
+
+select test.login(:M); set role authenticated;
+select test.throws('select public.propose_date((select id from mr), ''Cafe'', 40.7, -74.0, now() + interval ''1 day'', 1000)',
+  'Verify your ID', 'date deposits require ID verification');
+reset role;
+
+select test.login(:P); set role authenticated;
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''10 minutes'', 1000)',
+  'between 1 hour and 6 days', 'dates must be 1 hour to 6 days away');
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''1 day'', 5000)',
+  '\$25', 'new accounts have a lower deposit limit');
+create temp table plan1 as
+  select public.propose_date((select id from pq), 'Blue Bottle Coffee', 40.7410, -73.9897, now() + interval '1 day', 2000) as id;
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''2 days'', 1000)',
+  'already a date', 'one open date per chat');
+reset role;
+grant select on plan1 to authenticated, service_role;
+
+select test.login(:Q); set role authenticated;
+select test.ok(public.respond_date((select id from plan1), true) = 'accepted', 'the invitee accepts');
+reset role;
+
+set role service_role;
+select test.ok(public.deposit_due(:P, (select id from plan1)) = 2000, 'deposit amount due');
+select public.record_deposit_intent((select id from plan1), :P, 'pi_p1', 2000);
+select public.record_deposit_intent((select id from plan1), :Q, 'pi_q1', 2000);
+select public.mark_deposit('pi_p1', 'authorized');
+reset role;
+select test.ok((select status from public.date_plans where id = (select id from plan1)) = 'accepted', 'one deposit is not enough');
+set role service_role;
+select public.mark_deposit('pi_q1', 'authorized');
+reset role;
+select test.ok((select status from public.date_plans where id = (select id from plan1)) = 'confirmed', 'both holds confirm the date');
+
+update public.date_plans set starts_at = now() where id = (select id from plan1);
+set role service_role;
+select test.ok((public.record_check_in(:P, (select id from plan1), 40.7411, -73.9898, '{}') ->> 'ok')::boolean, 'check-in at the venue');
+select test.ok(public.record_check_in(:Q, (select id from plan1), 40.7600, -73.9800, '{}') ->> 'reason' = 'too_far', 'check-in from elsewhere is refused');
+select test.ok(public.record_check_in(:Q, (select id from plan1), 40.7411, -73.9898, '{"mocked": true}') ->> 'reason' = 'location_untrusted', 'spoofed check-in is refused');
+update public.date_plans set starts_at = now() - interval '3 hours' where id = (select id from plan1);
+select test.ok((select id from plan1) in (select public.plans_to_settle()), 'past dates are queued for settlement');
+select test.ok(public.settlement_for((select id from plan1)) = '{"outcome": "no_show", "release": ["pi_p1"], "capture": ["pi_q1"]}'::jsonb,
+  'the no-show is charged, the person who came is released');
+select test.ok(public.finish_settlement((select id from plan1)) = 'no_show', 'settlement recorded');
+select test.ok(public.credit_balance(:P) = 2000, 'the person who came gets the no-show amount as credit');
+select test.ok(exists (select 1 from public.risk_events where user_id = :Q and kind = 'no_show'), 'no-shows add risk');
+reset role;
+
+select test.login(:Q); set role authenticated;
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''2 days'', 1000)',
+  'aren’t available', 'risky accounts (after a no-show and a spoofed check-in) lose deposit access');
+reset role;
+set role service_role;
+select public.review_account(:Q, 'restore', 'spoofed check-in was a GPS glitch');
+reset role;
+
+select test.login(:P); set role authenticated;
+create temp table plan2 as
+  select public.propose_date((select id from pq), 'Park', 40.7410, -73.9897, now() + interval '2 days', 1500) as id;
+reset role;
+grant select on plan2 to authenticated, service_role;
+select test.login(:Q); set role authenticated; select public.respond_date((select id from plan2), true); reset role;
+set role service_role;
+select test.ok(public.deposit_due(:P, (select id from plan2)) = 0, 'credit covers the next deposit');
+select public.deposit_with_credit((select id from plan2), :P);
+reset role;
+select test.login(:P); set role authenticated;
+select test.ok(public.my_credit_balance() = 500, 'credit is spent on the deposit');
+select public.cancel_date((select id from plan2));
+reset role;
+set role service_role;
+select public.finish_settlement((select id from plan2));
+select test.ok(public.credit_balance(:P) = 2000, 'cancelling returns credit');
+reset role;
+
+select test.login(:M); set role authenticated;
+select test.ok(not exists (select 1 from public.date_plans), 'outsiders cannot see date plans');
 reset role;
 
 \echo 'All LushDate schema tests passed.'

@@ -20,14 +20,43 @@ interface SightengineResult {
 
 export type PhotoVerdict =
   | { ok: true; checked: boolean }
-  | { ok: false; reason: 'explicit' | 'ai_generated' | 'illustration' | 'no_face'; message: string };
+  | { ok: false; reason: 'explicit' | 'ai_generated' | 'illustration' | 'no_face' | 'found_online'; message: string };
 
 const MESSAGES = {
   explicit: 'This photo isn’t allowed on LushDate. Please choose another.',
   ai_generated: 'This looks AI-generated. Please use a real photo of yourself.',
   illustration: 'This looks like a drawing, cartoon or graphic. Please use a real photo of yourself.',
   no_face: 'We couldn’t see a face in this photo. Every profile photo needs to show you.',
+  found_online: 'This photo already appears elsewhere online. Please use a photo you took yourself.',
 } as const;
+
+/**
+ * Photo provenance (anti-catfish): Google Cloud Vision web detection finds
+ * exact copies of the image on the public web. Set GOOGLE_VISION_API_KEY.
+ * Returns null when not configured or on error (other checks still apply).
+ */
+async function foundOnline(url: string): Promise<boolean | null> {
+  const key = Deno.env.get('GOOGLE_VISION_API_KEY');
+  if (!key) return null;
+  try {
+    const res = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${encodeURIComponent(key)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requests: [{ image: { source: { imageUri: url } }, features: [{ type: 'WEB_DETECTION', maxResults: 5 }] }],
+      }),
+    });
+    const data = (await res.json()) as {
+      responses?: { webDetection?: { fullMatchingImages?: { url: string }[] } }[];
+    };
+    const matches = data.responses?.[0]?.webDetection?.fullMatchingImages ?? [];
+    // Our own storage URL can show up as a match; ignore it.
+    return matches.some((m) => !m.url.includes('supabase'));
+  } catch (err) {
+    console.error('provenance check failed', err);
+    return null;
+  }
+}
 
 export async function checkPhoto(url: string): Promise<PhotoVerdict> {
   const user = Deno.env.get('SIGHTENGINE_USER');
@@ -55,5 +84,6 @@ export async function checkPhoto(url: string): Promise<PhotoVerdict> {
   if ((result.type?.ai_generated ?? 0) > THRESHOLD) return reject('ai_generated');
   if ((result.type?.illustration ?? 0) > THRESHOLD) return reject('illustration');
   if (Array.isArray(result.faces) && result.faces.length === 0) return reject('no_face');
+  if ((await foundOnline(url)) === true) return reject('found_online');
   return { ok: true, checked: true };
 }

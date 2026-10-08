@@ -10,6 +10,7 @@ interface MessageRow {
   match_id: string;
   sender_id: string;
   kind: 'text' | 'snap' | 'screenshot';
+  held?: boolean;
 }
 interface CallRow {
   id: string;
@@ -84,6 +85,8 @@ Deno.serve(async (req) => {
 
   if (payload.table === 'messages') {
     const msg = payload.record as MessageRow;
+    // Held messages (money requests, shadowbanned senders) are never delivered.
+    if (msg.held) return json({ skipped: true });
     const { data: match, error } = await admin.from('matches').select('user_a, user_b').eq('id', msg.match_id).single();
     if (error || !match) {
       return json({ skipped: true });
