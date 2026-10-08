@@ -8,7 +8,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { ageFrom } from '../format';
 import type { Gender } from '../types';
-import { DEMO_PEOPLE, DEMO_REPLIES, MY_LOOKS, portrait, snapScene, type DemoPerson } from './data';
+import { DEMO_PEOPLE, DEMO_REPLIES, portrait, snapScene, type DemoPerson } from './data';
 
 type Row = Record<string, any>;
 type Result = { data: any; error: { message: string } | null };
@@ -442,9 +442,6 @@ class DemoDb {
     if (stored) return stored;
     if (path.startsWith('demo-snap/')) return snapScene();
     const [, owner, n] = path.split('/');
-    if (owner.startsWith('me-')) {
-      return portrait(MY_LOOKS[(owner.slice(3) as Gender) ?? 'woman'] ?? MY_LOOKS.woman, Number(n));
-    }
     const person = this.person(owner);
     return person ? portrait(person.look, Number(n)) : snapScene();
   }
@@ -647,6 +644,8 @@ export function createDemoClient(): SupabaseClient {
     functions: {
       invoke: async (name: string) => {
         if (name === 'delete-account') db.reset();
+        // The demo can't analyse photos; the real check runs on the server.
+        if (name === 'check-photo') return ok({ ok: true, checked: false });
         return ok({ deleted: true });
       },
     },

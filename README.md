@@ -11,7 +11,7 @@ This repository contains the MVP described in [`docs/MVP.md`](docs/MVP.md):
 |---|---|
 | `app/` | iOS + Android app (Expo SDK 57, React Native, Expo Router, TypeScript) |
 | `supabase/migrations/` | Postgres schema, privacy rules (RLS), and all server-side logic as SQL functions |
-| `supabase/functions/` | Edge functions: RevenueCat webhook, snap purge, push notifications, photo moderation, account deletion |
+| `supabase/functions/` | Edge functions: RevenueCat webhook, snap purge, push notifications, photo checks, account deletion |
 | `supabase/tests/` | Behavioural tests for the schema (54 checks) |
 | `docs/MVP.md` | Product scope, what's deliberately deferred, legal checklist |
 
@@ -34,7 +34,14 @@ are deleted from storage. Screenshots are blocked on Android and reported to the
 
 **Safety** — report (with reasons) and block from any profile or chat; blocking is symmetric and
 deletes the chat; pause profile; selfie verification with a blue check; safety tips and an emergency
-call button; automatic nudity/gore screening of profile photos; account deletion.
+call button; account deletion.
+
+**Real photos only** — every profile photo is checked when it's uploaded. Drawings, cartoons,
+AI-generated images, photos with no face, and nudity or gore are refused with a message saying why
+(`check-photo`), and a webhook re-checks every upload so the rule can't be skipped (`moderate-photo`).
+Selfie verification then confirms the photos are of the person using the account. Checks use
+[Sightengine](https://sightengine.com); until its keys are set, photos are not checked. After creating the
+account, upload one test photo and compare the response with `supabase/functions/_shared/photo-check.ts`.
 
 ### Privacy by design
 
@@ -124,7 +131,7 @@ Push notifications need an EAS project id (`npx eas-cli@latest init` adds it to 
 ## Demo mode
 
 `EXPO_PUBLIC_DEMO=1` swaps Supabase for an in-memory backend (`app/src/lib/demo/`) with pretend people,
-illustrated portraits, auto-replies, a view-once snap and fake purchases, so the app can be tried with no
+illustrated portraits for the pretend people, auto-replies, a view-once snap and fake purchases, so the app can be tried with no
 accounts at all. Sign in with any phone number and the code `123456`.
 
 ```sh

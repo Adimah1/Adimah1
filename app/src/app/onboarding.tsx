@@ -4,7 +4,6 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } fr
 import { MAX_PHOTOS, PhotoEditor } from '@/components/PhotoEditor';
 import { Button, Chip, Field, Muted, Screen, Title } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
-import { IS_DEMO } from '@/lib/env';
 import { ageFrom, parseBirthdate } from '@/lib/format';
 import { useLocationSync } from '@/lib/location';
 import { errorMessage, supabase } from '@/lib/supabase';
@@ -183,17 +182,14 @@ export default function Onboarding() {
             <>
               <Title>Add your photos</Title>
               <Muted>
-                Add at least {MIN_PHOTOS} (up to {MAX_PHOTOS}). Your first photo is your main one. Photos are checked
-                automatically — no nudity.
+                Add at least {MIN_PHOTOS} (up to {MAX_PHOTOS}) real photos of yourself, with your face showing. Your
+                first photo is your main one.
+              </Muted>
+              <Muted>
+                Drawings, cartoons, AI-generated images, photos of other people and explicit photos aren’t allowed and
+                are removed automatically.
               </Muted>
               <PhotoEditor userId={userId} photos={photos} onChange={setPhotos} />
-              {IS_DEMO ? (
-                <Button
-                  title="Use sample photos (demo)"
-                  variant="secondary"
-                  onPress={() => setPhotos([0, 1, 2].map((n) => `demo/me-${gender ?? 'woman'}/${n}`))}
-                />
-              ) : null}
             </>
           )}
 

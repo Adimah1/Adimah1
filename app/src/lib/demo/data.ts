@@ -326,9 +326,3 @@ export function snapScene(): string {
 </svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
-
-export const MY_LOOKS: Record<Gender, Look> = {
-  woman: { skin: SKIN[1], hair: HAIR.brown, style: 'long', shirt: '#FF4F8B', bg: ['#FFDEE9', '#B5FFFC'] },
-  man: { skin: SKIN[2], hair: HAIR.brown, style: 'short', shirt: '#FF4F8B', bg: ['#FFDEE9', '#B5FFFC'] },
-  nonbinary: { skin: SKIN[2], hair: HAIR.auburn, style: 'curly', shirt: '#FF4F8B', bg: ['#FFDEE9', '#B5FFFC'] },
-};

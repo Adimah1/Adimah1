@@ -28,3 +28,6 @@ verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = true
+
+[functions.check-photo]
+verify_jwt = true

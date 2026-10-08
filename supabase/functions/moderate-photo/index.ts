@@ -1,49 +1,14 @@
-// Automatic moderation for profile photos.
+// Backstop moderation for profile photos: runs on every upload, whether or not
+// the app called check-photo, and removes anything that isn't allowed.
 // Wire up a database webhook on INSERT into storage.objects pointing here, with
 // header Authorization: Bearer <MODERATION_WEBHOOK_SECRET>.
-// Uses Sightengine (https://sightengine.com). Without credentials it logs a
-// warning and lets every photo through, so set them before launch.
 
 import { admin, hasSharedSecret, json, type WebhookPayload } from '../_shared/admin.ts';
-
-const THRESHOLD = 0.5;
+import { checkPhoto } from '../_shared/photo-check.ts';
 
 interface StorageObject {
   bucket_id: string;
   name: string;
-}
-
-interface SightengineResult {
-  status: string;
-  nudity?: { sexual_activity?: number; sexual_display?: number; erotica?: number };
-  gore?: { prob?: number };
-  weapon?: { classes?: Record<string, number> };
-}
-
-async function isFlagged(url: string): Promise<boolean | null> {
-  const user = Deno.env.get('SIGHTENGINE_USER');
-  const secret = Deno.env.get('SIGHTENGINE_SECRET');
-  if (!user || !secret) {
-    console.warn('SIGHTENGINE_USER/SIGHTENGINE_SECRET not set; skipping moderation');
-    return null;
-  }
-  const params = new URLSearchParams({
-    models: 'nudity-2.1,gore-2.0',
-    api_user: user,
-    api_secret: secret,
-    url,
-  });
-  const res = await fetch(`https://api.sightengine.com/1.0/check.json?${params}`);
-  const result = (await res.json()) as SightengineResult;
-  if (result.status !== 'success') {
-    throw new Error(`Sightengine error: ${JSON.stringify(result)}`);
-  }
-  const nudity = Math.max(
-    result.nudity?.sexual_activity ?? 0,
-    result.nudity?.sexual_display ?? 0,
-    result.nudity?.erotica ?? 0,
-  );
-  return nudity > THRESHOLD || (result.gore?.prob ?? 0) > THRESHOLD;
 }
 
 Deno.serve(async (req) => {
@@ -59,14 +24,14 @@ Deno.serve(async (req) => {
   const {
     data: { publicUrl },
   } = admin.storage.from('photos').getPublicUrl(object.name);
-  let flagged: boolean | null;
+  let verdict;
   try {
-    flagged = await isFlagged(publicUrl);
+    verdict = await checkPhoto(publicUrl);
   } catch (err) {
     console.error(err);
     return json({ error: 'moderation failed' }, 500);
   }
-  if (!flagged) {
+  if (verdict.ok) {
     return json({ flagged: false });
   }
 
@@ -80,6 +45,6 @@ Deno.serve(async (req) => {
       .update({ photos: (profile.photos as string[]).filter((p) => p !== object.name) })
       .eq('id', ownerId);
   }
-  console.warn(`Removed flagged photo ${object.name}`);
-  return json({ flagged: true });
+  console.warn(`Removed photo ${object.name}: ${verdict.reason}`);
+  return json({ flagged: true, reason: verdict.reason });
 });

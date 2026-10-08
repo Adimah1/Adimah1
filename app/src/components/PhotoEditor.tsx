@@ -4,12 +4,14 @@ import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { errorMessage, photoUrl } from '@/lib/supabase';
+import { errorMessage, photoUrl, supabase } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
 import { uploadImage } from '@/lib/upload';
 import { showAlert } from '@/lib/alert';
 
 export const MAX_PHOTOS = 6;
+
+type PhotoVerdict = { ok: true } | { ok: false; message: string };
 
 /** A 3x2 grid of profile photo slots. Tap an empty slot to add, a photo to remove. */
 export function PhotoEditor({
@@ -35,6 +37,17 @@ export function PhotoEditor({
     setUploading(true);
     try {
       const path = await uploadImage('photos', userId, result.assets[0]);
+      // Only real photos of the person are allowed: the server rejects drawings,
+      // cartoons, AI-generated images, photos without a face, and explicit images.
+      const { data, error } = await supabase.functions.invoke<PhotoVerdict>('check-photo', { body: { path } });
+      if (error || !data) {
+        await supabase.storage.from('photos').remove([path]);
+        throw new Error('We couldn’t check this photo. Please try again.');
+      }
+      if (!data.ok) {
+        showAlert('Photo not added', data.message);
+        return;
+      }
       onChange([...photos, path]);
     } catch (e) {
       showAlert('Upload failed', errorMessage(e));
