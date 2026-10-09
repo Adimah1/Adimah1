@@ -1,4 +1,4 @@
-import { ageFrom, distanceLabel, matchPreview, parseBirthdate, timeAgo, toE164 } from './format';
+import { ageFrom, distanceLabel, formatNaira, matchPreview, parseBirthdate, timeAgo, toE164 } from './format';
 import type { MatchSummary } from './types';
 
 describe('ageFrom', () => {
@@ -69,5 +69,14 @@ describe('matchPreview', () => {
     expect(matchPreview({ ...base, last_kind: 'text', last_body: 'hey', last_sender_id: 'me' }, 'me')).toBe('You: hey');
     expect(matchPreview({ ...base, last_kind: 'snap', last_sender_id: 'o' }, 'me')).toBe('📸 New snap');
     expect(matchPreview({ ...base, last_kind: 'screenshot', last_sender_id: 'o' }, 'me')).toBe('Ben took a screenshot');
+  });
+});
+
+describe('formatNaira', () => {
+  it('formats kobo as naira with thousands separators', () => {
+    expect(formatNaira(250000)).toBe('₦2,500');
+    expect(formatNaira(2000000)).toBe('₦20,000');
+    expect(formatNaira(100050)).toBe('₦1,000.50');
+    expect(formatNaira(99)).toBe('₦0.99');
   });
 });

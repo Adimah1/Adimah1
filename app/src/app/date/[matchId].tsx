@@ -7,14 +7,16 @@ import { Glass } from '@/components/Glass';
 import { Button, Chip, Field, Muted, Screen } from '@/components/ui';
 import { showAlert } from '@/lib/alert';
 import { useAuth, useUserId } from '@/lib/auth';
-import { checkInMessage, checkInPosition, formatMoney, formatWhen, locatePlace, myCredit } from '@/lib/dates';
-import { confirmDepositHold, depositsAvailable } from '@/lib/payments';
+import { useCheckout } from '@/components/Checkout';
+import { checkInMessage, checkInPosition, formatWhen, locatePlace, myCredit } from '@/lib/dates';
+import { formatNaira as formatMoney } from '@/lib/payments';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
 import type { DateDeposit, DatePlan, MatchSummary } from '@/lib/types';
 
 const OPEN: DatePlan['status'][] = ['proposed', 'accepted', 'confirmed'];
-const AMOUNTS = [1000, 2000, 2500, 5000, 10000];
+/** Deposit choices in kobo (₦2,000 – ₦20,000). */
+const AMOUNTS = [200000, 300000, 500000, 1000000, 2000000];
 const TIMES = [12, 15, 18, 19, 20, 21];
 
 function dayOptions() {
@@ -30,7 +32,7 @@ function dayOptions() {
   return out;
 }
 
-/** Plan a date with a show-up deposit, place your hold, and check in. */
+/** Plan a date with a show-up deposit, pay your deposit, and check in. */
 export default function DateScreen() {
   const t = useTheme();
   const userId = useUserId();
@@ -46,7 +48,8 @@ export default function DateScreen() {
   const [place, setPlace] = useState('');
   const [day, setDay] = useState(1);
   const [hour, setHour] = useState(19);
-  const [amount, setAmount] = useState(2000);
+  const [amount, setAmount] = useState(300000);
+  const { pay, prompt } = useCheckout();
 
   const load = useCallback(
     () =>
@@ -143,21 +146,17 @@ export default function DateScreen() {
     if (!plan) return;
     setBusy(true);
     try {
-      const { data, error } = await supabase.functions.invoke<{
-        clientSecret?: string;
-        covered?: boolean;
-        error?: string;
-      }>('date-deposit', { body: { planId: plan.id } });
-      if (error || !data) throw error ?? new Error('Deposit failed');
-      if (data.error) throw new Error(data.error);
-      if (!data.covered && data.clientSecret) {
-        const result = await confirmDepositHold(data.clientSecret);
-        if (!result.ok) {
-          if (!result.cancelled) showAlert('Deposit not placed', result.message);
-          return;
-        }
+      const result = await pay('date-deposit', { planId: plan.id });
+      if (!result.ok) {
+        if (!result.cancelled) handleError('Deposit not placed', new Error(result.message));
+        return;
       }
-      showAlert('Hold placed', 'Nothing is charged. It’s released when you both check in.');
+      showAlert(
+        'Deposit placed',
+        result.covered
+          ? 'Your LushDate credit covered it.'
+          : 'It’s refunded in full to your card or account when you both check in.',
+      );
       load();
     } catch (e) {
       handleError('Deposit not placed', e);
@@ -222,14 +221,15 @@ export default function DateScreen() {
 
   return (
     <Screen edges={['bottom']}>
+      {prompt}
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Plan a date with {name}</Text>
         <Glass style={styles.explainer}>
           <Ionicons name="shield-checkmark" size={22} color={t.success} />
           <Text style={styles.explainText}>
             <Text style={{ fontWeight: '800', color: '#fff' }}>Show-up deposits. </Text>
-            You both place the same refundable hold. Check in at the place and both holds are released — nothing is
-            charged. If one of you doesn’t show, their deposit becomes LushDate credit for the other.
+            You both pay the same deposit through Paystack. Check in at the place and both are refunded in full. If one
+            of you doesn’t show, their deposit becomes LushDate credit for the other.
           </Text>
         </Glass>
         {credit > 0 ? (
@@ -256,17 +256,13 @@ export default function DateScreen() {
               ) : open.status === 'proposed' ? (
                 <Muted>Waiting for {name} to accept.</Muted>
               ) : mine?.status !== 'authorized' ? (
-                depositsAvailable ? (
-                  <Button
-                    title={`Place ${formatMoney(open.deposit_cents)} hold`}
-                    onPress={placeDeposit}
-                    loading={busy}
-                  />
-                ) : (
-                  <Muted>Deposits can be placed in the LushDate app.</Muted>
-                )
+                <Button
+                  title={`Pay ${formatMoney(open.deposit_cents)} deposit`}
+                  onPress={placeDeposit}
+                  loading={busy}
+                />
               ) : open.status === 'accepted' ? (
-                <Muted>Your hold is in place. Waiting for {name}’s.</Muted>
+                <Muted>Your deposit is in. Waiting for {name}’s.</Muted>
               ) : (
                 <Button
                   title={canCheckIn ? 'Check in at the place' : 'Check-in opens 30 min before'}
@@ -335,7 +331,7 @@ export default function DateScreen() {
                     <Chip key={a} label={formatMoney(a)} selected={amount === a} onPress={() => setAmount(a)} />
                   ))}
                 </View>
-                <Muted>New accounts can use up to $25 for their first 30 days. Meet somewhere public.</Muted>
+                <Muted>New accounts can use up to ₦5,000 for their first 30 days. Meet somewhere public.</Muted>
                 <Button title="Propose date" onPress={propose} loading={busy} disabled={!place.trim()} />
               </View>
             )}
@@ -368,15 +364,15 @@ async function fetchDate(matchId: string) {
 function outcomeText(status: DatePlan['status'], name: string): string {
   switch (status) {
     case 'completed':
-      return 'You both showed up — holds released. 🍒';
+      return 'You both showed up — deposits refunded. 🍒';
     case 'no_show':
-      return 'Someone didn’t show. The no-show’s deposit was charged and credited to the person who came.';
+      return 'Someone didn’t show. The no-show’s deposit was kept and credited to the person who came.';
     case 'expired':
-      return 'This date expired. Any holds were released.';
+      return 'This date expired. Any deposits were refunded.';
     case 'declined':
       return `${name} couldn’t make it. Nothing was charged.`;
     case 'cancelled':
-      return 'This date was cancelled. Any holds were released.';
+      return 'This date was cancelled. Any deposits were refunded.';
     case 'disputed':
       return 'Our team is reviewing this date.';
     default:
@@ -389,8 +385,8 @@ function Status({ label, deposit }: { label: string; deposit: DateDeposit | unde
   const state = deposit?.checked_in_at
     ? { icon: 'location' as const, text: 'Checked in', color: t.success }
     : deposit?.status === 'authorized'
-      ? { icon: 'checkmark-circle' as const, text: 'Hold placed', color: t.success }
-      : { icon: 'time-outline' as const, text: 'No hold yet', color: t.muted };
+      ? { icon: 'checkmark-circle' as const, text: 'Deposit paid', color: t.success }
+      : { icon: 'time-outline' as const, text: 'No deposit yet', color: t.muted };
   return (
     <View style={styles.status}>
       <Text style={styles.statusLabel}>{label}</Text>

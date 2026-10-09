@@ -114,20 +114,22 @@ once "the date/service happened". That was not built:
 **Show-up deposits** keep the anti-flake benefit without either problem:
 
 1. Two matched, ID-verified people agree on a public place, a time 1 hour to 6 days ahead, and a deposit
-   ($5–$25 for accounts under 30 days, up to $100 after).
-2. Each places the **same** deposit as a Stripe authorization hold (`capture_method=manual`) — nothing is
-   charged. Credit from a previous date can cover it.
+   (₦2,000–₦5,000 for accounts under 30 days, up to ₦20,000 after).
+2. Each pays the **same** deposit through Paystack. LushDate holds it; credit from a previous date can
+   cover it. The amount always comes from the server, and a payment for the wrong amount or currency, or
+   one that arrives after the date was cancelled, is refunded automatically.
 3. Check-in opens 30 minutes before and closes 90 minutes after the start time, and requires being within
    250 m of the venue, with no spoofing signals. Only the distance is stored.
 4. Settlement (`settle-dates`, every 10 minutes, or immediately once both check in):
-   * both checked in → both holds released, nothing charged;
-   * one checked in → the no-show's hold is captured, and the person who came receives the same amount as
+   * both checked in → both deposits refunded in full;
+   * one checked in → the no-show's deposit is kept, and the person who came receives the same amount as
      **LushDate credit** (not cash) for their next deposit;
-   * neither → both released.
+   * neither → both refunded.
 5. Either person can dispute within 48 hours; a reviewer can refund.
 
 Money only ever flows from a user to LushDate, never between users, so there are no payouts to launder
-or scam. Stripe Radar handles card fraud. Limits: one open date per chat, 3 open dates per person,
+or scam. Paystack's own fraud checks screen cards, and every charge is re-verified with the Paystack API
+before it counts. Limits: one open date per chat, 3 open dates per person,
 5 proposals per day. Chargebacks add risk and are logged with the plan, check-ins and chat as evidence.
 
 Off-platform payment attempts in chat are handled in section 4.
@@ -176,8 +178,9 @@ Off-platform payment attempts in chat are handled in section 4.
 | IP-intelligence service down | Fails open on the IP check only; device and velocity rules still apply. |
 | Photo-checking service down/unset | `check-photo` reports an error and the app asks to retry; the webhook re-checks when it's back. Without keys, photos are not checked (logged loudly). |
 | KYC webhook missing fields | Inquiry left in manual review, never auto-approved. |
-| Stripe call fails during settlement | Plan left unchanged and retried on the next run; idempotency keys prevent double captures. |
-| Hold expires (7-day Stripe limit) | Dates are capped at 6 days ahead; settlement treats an expired hold as released. |
+| Paystack refund fails during settlement | Plan left unchanged and retried on the next run; a payment is only refunded once (already-reversed counts as done). |
+| Payment arrives late or for the wrong amount | Recorded as `refund_due` and refunded by `settle-dates`; it unlocks nothing. |
+| Paystack webhook missed | The app verifies each payment itself when checkout closes; either path is idempotent. |
 | SMS provider down on panic | The person is still blocked and the chat deleted; the app offers an emergency call. |
 | Shared family phone | Device rule only adds risk below 4 accounts and freezes only for a *banned* account's device. |
 
@@ -186,11 +189,11 @@ Off-platform payment attempts in chat are handled in section 4.
 ## 10. What's real, what needs keys, what isn't built yet
 
 Implemented and tested in this repo: everything in sections 4–9 and the server-side logic of 2–3
-(137 schema checks, signature unit tests).
+(157 schema checks, signature unit tests).
 
 Needs accounts and secrets before it runs (see README → Getting started):
 `IPQS_API_KEY`, `GOOGLE_VISION_API_KEY`, `SIGHTENGINE_*`, `PERSONA_*`, `IDENTITY_HASH_SALT`,
-`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `TWILIO_*`, plus `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` in the app.
+`PAYSTACK_SECRET_KEY`, `PAYSTACK_PLUS_PLAN`, `TWILIO_*`. The app holds no payment keys.
 
 Not built yet:
 
@@ -216,8 +219,10 @@ Deliberately not built:
 
 * Legal review of deposits and KYC data handling (FinCEN money-services rules don't apply while there
   are no payouts, but confirm; GDPR/CCPA for ID and location data; BIPA in Illinois for face data).
-* App Store: deposits for meeting in person are a real-world service, so Stripe is permitted rather than
-  in-app purchase; confirm during review.
+* App stores: deposits for meeting in person are a real-world service, so Paystack is fine for them. LushDate+
+  and boosts are digital goods: the Play Store and App Store normally require their own billing for those, so
+  before a store release either move them to Google Play Billing / Apple in-app purchase or confirm an
+  exemption. Installing the APK directly (as now) has no such rule.
 * Write the privacy policy sections for KYC, location telemetry retention and safety moderation.
 * Budget: identity, IP intelligence and moderation vendors are per-call; expect them to be a large share of
   running costs.

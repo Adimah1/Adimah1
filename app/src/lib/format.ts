@@ -63,3 +63,22 @@ export function matchPreview(match: MatchSummary, myId: string): string {
       return (mine ? 'You: ' : '') + (match.last_body ?? '');
   }
 }
+
+/** ₦ from kobo, e.g. 250000 → "₦2,500". */
+export function formatNaira(kobo: number): string {
+  const naira = kobo / 100;
+  const whole = Math.trunc(naira)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `₦${whole}${Number.isInteger(naira) ? '' : (naira % 1).toFixed(2).slice(1)}`;
+}
+
+const INTERVALS: Record<string, string> = {
+  daily: 'day',
+  weekly: 'week',
+  monthly: 'month',
+  quarterly: '3 months',
+  biannually: '6 months',
+  annually: 'year',
+};
+export const intervalLabel = (interval: string) => INTERVALS[interval] ?? interval;

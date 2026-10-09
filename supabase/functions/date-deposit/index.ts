@@ -1,16 +1,16 @@
-// Places the caller's show-up deposit for a date: a Stripe authorization hold
-// (capture_method=manual), never an immediate charge. Returns the client
-// secret for the app's payment sheet, or { covered: true } when LushDate
-// credit covers it.
+// Places the caller's show-up deposit for a date through Paystack. The
+// deposit is charged now and refunded in full when both people check in (or
+// the date is cancelled / expires). Returns a Paystack checkout, or
+// { covered: true } when LushDate credit covers it.
 
 import { admin, json } from '../_shared/admin.ts';
 import { requestUser } from '../_shared/auth.ts';
-import { stripe } from '../_shared/stripe.ts';
+import { PaymentError, startCheckout } from '../_shared/paystack.ts';
 
 Deno.serve(async (req) => {
   const user = await requestUser(req);
   if (!user) return json({ error: 'unauthorized' }, 401);
-  const { planId } = (await req.json()) as { planId?: string };
+  const { planId, email } = (await req.json()) as { planId?: string; email?: string };
   if (!planId) return json({ error: 'planId is required' }, 400);
 
   // Enforces KYC, account standing and plan state.
@@ -23,25 +23,11 @@ Deno.serve(async (req) => {
     return json({ covered: true });
   }
 
-  const intent = await stripe<{ id: string; client_secret: string }>(
-    'payment_intents',
-    {
-      amount: due as number,
-      currency: 'usd',
-      capture_method: 'manual',
-      'automatic_payment_methods[enabled]': 'true',
-      description: 'LushDate show-up deposit (refunded when you check in)',
-      'metadata[plan_id]': planId,
-      'metadata[user_id]': user.id,
-    },
-    `deposit-${planId}-${user.id}`,
-  );
-  const { error: recordError } = await admin.rpc('record_deposit_intent', {
-    p_plan_id: planId,
-    p_user: user.id,
-    p_payment_intent: intent.id,
-    p_amount: due,
-  });
-  if (recordError) return json({ error: recordError.message }, 500);
-  return json({ clientSecret: intent.client_secret });
+  try {
+    return json(await startCheckout({ userId: user.id, kind: 'deposit', amount: due as number, planId, email }));
+  } catch (err) {
+    if (err instanceof PaymentError) return json({ error: err.message, code: err.code }, err.status);
+    console.error(err);
+    return json({ error: 'Payment service error. Please try again.' }, 500);
+  }
 });

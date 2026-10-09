@@ -1,12 +1,13 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Purchases, { type PurchasesPackage } from 'react-native-purchases';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { useCheckout } from '@/components/Checkout';
 import { Button, Muted, Screen } from '@/components/ui';
 import { useUserId } from '@/lib/auth';
-import { hasPlus, isCancelled, purchasesAvailable, usePlus, waitForServer } from '@/lib/purchases';
+import { formatNaira, getPrices, intervalLabel, manageSubscription, type Prices } from '@/lib/payments';
+import { hasPlus, usePlus, waitForServer } from '@/lib/purchases';
 import { errorMessage } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
 import { showAlert } from '@/lib/alert';
@@ -25,53 +26,42 @@ const PERKS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string
 export default function Paywall() {
   const t = useTheme();
   const userId = useUserId();
-  const { isPlus } = usePlus(userId);
-  const [packages, setPackages] = useState<PurchasesPackage[] | null>(null);
-  const [selected, setSelected] = useState<PurchasesPackage | null>(null);
+  const { isPlus, refresh } = usePlus(userId);
+  const { pay, prompt } = useCheckout();
+  const [prices, setPrices] = useState<Prices | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!purchasesAvailable) return;
-    Purchases.getOfferings()
-      .then((offerings) => {
-        const list = offerings.current?.availablePackages ?? [];
-        setPackages(list);
-        setSelected(list[0] ?? null);
-      })
-      .catch(() => setPackages([]));
+    getPrices()
+      .then(setPrices)
+      .catch(() => setPrices({ available: false }));
   }, []);
 
-  const serverHasPlus = () => hasPlus(userId);
+  const plan = prices?.plus;
 
   async function buy() {
-    if (!selected) return;
     setBusy(true);
     try {
-      await Purchases.purchasePackage(selected);
-      const ok = await waitForServer(serverHasPlus);
-      if (!ok) {
-        showAlert('Almost there', 'Your purchase went through. It can take a minute for LushDate+ to switch on.');
+      const result = await pay('payments', { action: 'plus' });
+      if (!result.ok) {
+        if (!result.cancelled) showAlert('Payment not completed', result.message);
+        return;
       }
+      await waitForServer(() => hasPlus(userId), 4);
+      await refresh();
+      showAlert('Welcome to LushDate+ 💎', 'Your new features are switched on.');
       router.back();
-    } catch (e) {
-      if (!isCancelled(e)) showAlert('Purchase failed', errorMessage(e));
     } finally {
       setBusy(false);
     }
   }
 
-  async function restore() {
+  async function manage() {
     setBusy(true);
     try {
-      await Purchases.restorePurchases();
-      const ok = await waitForServer(serverHasPlus, 4);
-      showAlert(
-        ok ? 'Restored' : 'Nothing to restore',
-        ok ? 'LushDate+ is active.' : 'No active subscription was found.',
-      );
-      if (ok) router.back();
+      await manageSubscription();
     } catch (e) {
-      showAlert('Restore failed', errorMessage(e));
+      showAlert('Couldn’t open your subscription', errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -79,6 +69,7 @@ export default function Paywall() {
 
   return (
     <Screen edges={['bottom']}>
+      {prompt}
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.hero}>
           <Text style={{ fontSize: 56 }}>💎</Text>
@@ -100,45 +91,36 @@ export default function Paywall() {
 
         {isPlus ? (
           <Text style={[styles.active, { color: t.success }]}>✓ LushDate+ is active on your account</Text>
-        ) : !purchasesAvailable ? (
-          <Muted center>
-            Purchases aren’t available in this build. Use a development or store build with RevenueCat configured.
-          </Muted>
-        ) : packages === null ? (
+        ) : prices === null ? (
           <ActivityIndicator color={t.primary} />
-        ) : packages.length === 0 ? (
-          <Muted center>No plans are available right now. Please try again later.</Muted>
+        ) : !plan ? (
+          <Muted center>LushDate+ isn’t on sale yet. Please check back soon.</Muted>
         ) : (
-          <View style={{ gap: space.sm }}>
-            {packages.map((pkg) => {
-              const active = selected?.identifier === pkg.identifier;
-              return (
-                <Pressable
-                  key={pkg.identifier}
-                  onPress={() => setSelected(pkg)}
-                  style={[styles.plan, { borderColor: active ? t.primary : t.border, backgroundColor: t.surface }]}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: t.text, fontWeight: '700', fontSize: 16 }}>{pkg.product.title}</Text>
-                    <Muted>{pkg.product.description}</Muted>
-                  </View>
-                  <Text style={{ color: t.text, fontWeight: '800', fontSize: 16 }}>{pkg.product.priceString}</Text>
-                </Pressable>
-              );
-            })}
+          <View style={[styles.plan, { borderColor: t.primary, backgroundColor: t.surface }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: t.text, fontWeight: '700', fontSize: 16 }}>{plan.name}</Text>
+              <Muted>Renews every {intervalLabel(plan.interval)}. Cancel anytime.</Muted>
+            </View>
+            <Text style={{ color: t.text, fontWeight: '800', fontSize: 16 }}>
+              {formatNaira(plan.amount)}/{intervalLabel(plan.interval)}
+            </Text>
           </View>
         )}
       </ScrollView>
 
-      {!isPlus && purchasesAvailable ? (
-        <View style={styles.footer}>
-          <Button title="Continue" onPress={buy} loading={busy} disabled={!selected} />
-          <Button title="Restore purchases" variant="ghost" onPress={restore} disabled={busy} />
-          <Text style={[styles.legal, { color: t.muted }]}>
-            Subscriptions renew automatically until cancelled in your App Store or Google Play settings.
-          </Text>
-        </View>
-      ) : null}
+      <View style={styles.footer}>
+        {isPlus ? (
+          <Button title="Manage subscription" variant="secondary" onPress={manage} loading={busy} />
+        ) : plan ? (
+          <>
+            <Button title="Pay with Paystack" onPress={buy} loading={busy} />
+            <Text style={[styles.legal, { color: t.muted }]}>
+              Paid securely by card through Paystack. Renews automatically until you cancel in Me → LushDate+ → Manage
+              subscription.
+            </Text>
+          </>
+        ) : null}
+      </View>
     </Screen>
   );
 }

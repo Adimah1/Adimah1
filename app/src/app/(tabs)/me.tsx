@@ -2,7 +2,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import Purchases from 'react-native-purchases';
 
 import { Glass } from '@/components/Glass';
 import { TAB_BAR_SPACE } from '@/components/GlassTabBar';
@@ -10,14 +9,8 @@ import { PillButton, ProfileHero } from '@/components/ProfileHero';
 import { Button } from '@/components/ui';
 import { useAuth, useUserId } from '@/lib/auth';
 import { ageFrom } from '@/lib/format';
-import {
-  BOOST_OFFERING,
-  isCancelled,
-  purchasesAvailable,
-  resetPurchases,
-  usePlus,
-  waitForServer,
-} from '@/lib/purchases';
+import { useCheckout } from '@/components/Checkout';
+import { usePlus, waitForServer } from '@/lib/purchases';
 import { unregisterPush } from '@/lib/push';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { space, useTheme } from '@/lib/theme';
@@ -32,6 +25,7 @@ export default function Me() {
   const [boostMinutesLeft, setBoostMinutesLeft] = useState<number | null>(null);
   const [boosting, setBoosting] = useState(false);
   const [counts, setCounts] = useState({ likes: 0, matches: 0 });
+  const { pay, prompt } = useCheckout();
 
   const loadBoost = useCallback(async () => {
     const { data } = await supabase
@@ -78,22 +72,14 @@ export default function Me() {
   }
 
   async function boost() {
-    if (!purchasesAvailable) {
-      showAlert('Boosts unavailable', 'Purchases aren’t available in this build.');
-      return;
-    }
     setBoosting(true);
     try {
-      const offerings = await Purchases.getOfferings();
-      const pkg = offerings.all[BOOST_OFFERING]?.availablePackages[0];
-      if (!pkg) {
-        showAlert('Boosts unavailable', 'Please try again later.');
+      const result = await pay('payments', { action: 'boost' });
+      if (!result.ok) {
+        if (!result.cancelled) showAlert('Boost not started', result.message);
         return;
       }
-      await Purchases.purchasePackage(pkg);
-      await waitForServer(loadBoost);
-    } catch (e) {
-      if (!isCancelled(e)) showAlert('Boost failed', errorMessage(e));
+      await waitForServer(loadBoost, 4);
     } finally {
       setBoosting(false);
     }
@@ -101,14 +87,13 @@ export default function Me() {
 
   async function doSignOut() {
     await unregisterPush();
-    await resetPurchases();
     await signOut();
   }
 
   function deleteAccount() {
     showAlert(
       'Delete your account?',
-      'Your profile, matches and messages will be permanently deleted. This can’t be undone. Cancel any subscription in your app store settings first.',
+      'Your profile, matches and messages will be permanently deleted. This can’t be undone. Your LushDate+ subscription is cancelled too.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -121,7 +106,6 @@ export default function Me() {
               showAlert('Could not delete account', errorMessage(error));
               return;
             }
-            await resetPurchases();
             await signOut();
           },
         },
@@ -164,7 +148,19 @@ export default function Me() {
         </Pressable>
       ) : null}
 
-      {!isPlus ? (
+      {prompt}
+      {isPlus ? (
+        <Pressable onPress={() => router.push('/paywall')}>
+          <Glass style={styles.cardRow}>
+            <Text style={{ fontSize: 26 }}>💎</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>LushDate+ is active</Text>
+              <Text style={styles.cardBody}>Manage your subscription or change your card.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={t.muted} />
+          </Glass>
+        </Pressable>
+      ) : (
         <Pressable onPress={() => router.push('/paywall')}>
           <Glass style={[styles.cardRow, { borderColor: t.primary }]}>
             <Text style={{ fontSize: 26 }}>💎</Text>
@@ -175,7 +171,7 @@ export default function Me() {
             <Ionicons name="chevron-forward" size={20} color={t.muted} />
           </Glass>
         </Pressable>
-      ) : null}
+      )}
 
       <Glass style={styles.cardRow}>
         <Text style={{ fontSize: 26 }}>⚡</Text>

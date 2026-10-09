@@ -11,8 +11,8 @@ This repository contains the MVP described in [`docs/MVP.md`](docs/MVP.md):
 |---|---|
 | `app/` | iOS + Android app (Expo SDK 57, React Native, Expo Router, TypeScript) |
 | `supabase/migrations/` | Postgres schema, privacy rules (RLS), and all server-side logic as SQL functions |
-| `supabase/functions/` | Edge functions: RevenueCat webhook, snap purge, push notifications, photo checks, account deletion |
-| `supabase/tests/` | Behavioural tests for the schema (137 checks) |
+| `supabase/functions/` | Edge functions: Paystack payments, snap purge, push notifications, photo checks, account deletion |
+| `supabase/tests/` | Behavioural tests for the schema (157 checks) |
 | `docs/MVP.md` | Product scope, what's deliberately deferred, legal checklist |
 
 ## Features
@@ -29,7 +29,7 @@ within each other's age ranges, who aren't paused, blocked or already swiped.
 **Chat** — realtime text chat plus **snaps**: photos that can be opened once, for 10 seconds, then
 are deleted from storage. Screenshots are blocked on Android and reported to the other person on iOS.
 
-**LushDate+** (subscription via RevenueCat) — video calls, see who liked you, 100-mile radius, incognito mode.
+**LushDate+** (monthly subscription via Paystack) — video calls, see who liked you, 100-mile radius, incognito mode.
 
 **Video calls** (LushDate+) — matches can video call from the chat screen. Only LushDate+ members can
 *start* a call (enforced by the `start_call` database function); answering is free for everyone. Calls ring
@@ -44,9 +44,9 @@ scam-script patterns, rapid reports, duplicate IDs and ban evasion feed a risk s
 freezes accounts, with in-app appeals. Government ID + liveness unlocks money features. Full design,
 thresholds and fallbacks: [`docs/SECURITY.md`](docs/SECURITY.md).
 
-**Show-up deposits** — matched, ID-verified people can plan a date where both place the same refundable
-card hold; checking in at the venue releases both, a no-show's deposit becomes credit for the person who
-came. Money never moves between users.
+**Show-up deposits** — matched, ID-verified people can plan a date where both pay the same deposit
+(₦2,000–₦20,000) through Paystack; checking in at the venue refunds both, a no-show's deposit becomes
+credit for the person who came. Money never moves between users.
 
 **Safety** — panic button (blocks, deletes the chat, texts your emergency contact your location), report (with reasons) and block from any profile or chat; blocking is symmetric and
 deletes the chat; pause profile; selfie verification with a blue check; safety tips and an emergency
@@ -86,8 +86,6 @@ account, upload one test photo and compare the response with `supabase/functions
    ```sh
    supabase functions deploy
    supabase secrets set \
-     REVENUECAT_WEBHOOK_SECRET=<random> \
-     REVENUECAT_SECRET_KEY=<RevenueCat secret API key> \
      CRON_SECRET=<random> \
      PUSH_WEBHOOK_SECRET=<random> \
      MODERATION_WEBHOOK_SECRET=<random> \
@@ -96,7 +94,7 @@ account, upload one test photo and compare the response with `supabase/functions
      IPQS_API_KEY=<ipqualityscore key> GOOGLE_VISION_API_KEY=<key> \
      PERSONA_TEMPLATE_ID=itmpl_... PERSONA_ENVIRONMENT_ID=env_... PERSONA_WEBHOOK_SECRET=<secret> \
      IDENTITY_HASH_SALT=<long random string — never change it> \
-     STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_... \
+     PAYSTACK_SECRET_KEY=sk_live_... PAYSTACK_PLUS_PLAN=PLN_... \
      TWILIO_ACCOUNT_SID=AC... TWILIO_AUTH_TOKEN=<token> TWILIO_FROM=+1...
    ```
 5. **Database → Webhooks** — create three webhooks, each with the HTTP header
@@ -109,8 +107,8 @@ account, upload one test photo and compare the response with `supabase/functions
    | `public.calls` INSERT | `/functions/v1/push` | `PUSH_WEBHOOK_SECRET` |
    | `storage.objects` INSERT | `/functions/v1/moderate-photo` | `MODERATION_WEBHOOK_SECRET` |
 
-   Also point **Stripe** (events `payment_intent.amount_capturable_updated`, `payment_intent.payment_failed`,
-   `payment_intent.canceled`, `charge.dispute.created`) at `/functions/v1/stripe-webhook`, and **Persona**
+   Also set the **Paystack** webhook URL (Settings → API Keys & Webhooks) to `/functions/v1/paystack-webhook`,
+   and point **Persona**
    inquiry events at `/functions/v1/kyc-webhook`.
 
 6. **Scheduled snap cleanup** — enable the `pg_cron` and `pg_net` extensions, then run in the SQL editor:
@@ -135,26 +133,28 @@ Create a project at [cloud.livekit.io](https://cloud.livekit.io) (there's a free
 WebSocket URL, API key and API secret into the `LIVEKIT_*` secrets above. Nothing LiveKit-specific goes in
 the app's `.env`.
 
-### 3. RevenueCat (payments)
+### 3. Paystack (payments)
 
-1. Create the products in App Store Connect and Google Play:
-   a LushDate+ subscription (e.g. `plus_monthly`) and a consumable boost whose id starts with `boost`
-   (e.g. `boost_30m`).
-2. In RevenueCat: create an entitlement **`plus`** attached to the subscription(s); make the
-   subscription packages your **current** offering; create an offering named **`boosts`** containing the
-   boost product.
-3. **Integrations → Webhooks**: URL `https://<project-ref>.supabase.co/functions/v1/revenuecat-webhook`,
-   authorization header `Bearer <REVENUECAT_WEBHOOK_SECRET>`.
+All prices are in naira and every payment goes through Paystack's checkout page; the app holds no keys.
 
-The app logs in to RevenueCat with the Supabase user id, and the server's `entitlements` table (written
-only by the webhook) is what actually unlocks features — the client can't grant itself LushDate+.
+1. In the Paystack dashboard, create a **Plan** for LushDate+ (Products → Plans, e.g. ₦2,500 monthly) and
+   copy its code (`PLN_…`) into `PAYSTACK_PLUS_PLAN`.
+2. Copy your **secret key** (Settings → API Keys & Webhooks) into `PAYSTACK_SECRET_KEY`. Use the test key
+   (`sk_test_…`) while testing.
+3. Set the **Webhook URL** on the same page to
+   `https://<project-ref>.supabase.co/functions/v1/paystack-webhook`.
+4. Optional: `PAYSTACK_BOOST_PRICE` (in kobo, default `100000` = ₦1,000).
+
+People add an email for receipts the first time they pay. Paystack confirms each payment to the server,
+and only then does LushDate+ switch on, a boost start or a deposit count. Deposits are refunded through
+Paystack's refund API. People cancel LushDate+ from Me → LushDate+ → Manage subscription.
 
 ### 4. The app
 
 ```sh
 cd app
 npm install
-cp .env.example .env   # fill in the Supabase URL + anon key and RevenueCat public keys
+cp .env.example .env   # fill in the Supabase URL + anon key
 npx expo start
 ```
 
@@ -180,7 +180,7 @@ Push notifications need an EAS project id (`npx eas-cli@latest init` adds it to 
 # App: types, lint, unit tests
 cd app && npm run typecheck && npm run lint && npm test
 
-# Database: runs the migration + 137 behavioural checks on a throwaway database.
+# Database: runs the migration + 157 behavioural checks on a throwaway database.
 # Needs a local Postgres 16 with PostGIS 3 (or set PGHOST/PGPORT/PGUSER).
 supabase/tests/run.sh
 

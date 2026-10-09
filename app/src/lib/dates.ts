@@ -4,8 +4,6 @@ import { Platform } from 'react-native';
 import { reportLocation } from './security';
 import { supabase } from './supabase';
 
-export const formatMoney = (cents: number) => `$${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
-
 export function formatWhen(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString(undefined, {

@@ -2,6 +2,7 @@
 // Called from the app with the user's own session token.
 
 import { admin, json } from '../_shared/admin.ts';
+import { paystack } from '../_shared/paystack.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +31,18 @@ Deno.serve(async (req) => {
   } = await admin.auth.getUser(jwt);
   if (error || !user) {
     return json({ error: 'unauthorized' }, 401);
+  }
+
+  // Stop LushDate+ renewals before the account (and its billing link) goes.
+  const { data: billing } = await admin
+    .from('billing_customers')
+    .select('subscription_code, email_token')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (billing?.subscription_code && billing.email_token) {
+    await paystack('subscription/disable', {
+      body: { code: billing.subscription_code, token: billing.email_token },
+    }).catch((e) => console.error('could not disable subscription', e));
   }
 
   await removeFolder('photos', user.id);
