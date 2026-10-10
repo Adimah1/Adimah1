@@ -6,7 +6,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-nat
 import { useCheckout } from '@/components/Checkout';
 import { Button, Muted, Screen } from '@/components/ui';
 import { useUserId } from '@/lib/auth';
-import { formatNaira, getPrices, intervalLabel, manageSubscription, type Prices } from '@/lib/payments';
+import { formatMoney, getPrices, intervalLabel, manageSubscription, type Prices } from '@/lib/payments';
 import { hasPlus, usePlus, waitForServer } from '@/lib/purchases';
 import { errorMessage } from '@/lib/supabase';
 import { radius, space, useTheme } from '@/lib/theme';
@@ -102,7 +102,7 @@ export default function Paywall() {
               <Muted>Renews every {intervalLabel(plan.interval)}. Cancel anytime.</Muted>
             </View>
             <Text style={{ color: t.text, fontWeight: '800', fontSize: 16 }}>
-              {formatNaira(plan.amount)}/{intervalLabel(plan.interval)}
+              {formatMoney(plan.amount)}/{intervalLabel(plan.interval)}
             </Text>
           </View>
         )}

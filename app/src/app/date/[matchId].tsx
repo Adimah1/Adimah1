@@ -9,14 +9,14 @@ import { showAlert } from '@/lib/alert';
 import { useAuth, useUserId } from '@/lib/auth';
 import { useCheckout } from '@/components/Checkout';
 import { checkInMessage, checkInPosition, formatWhen, locatePlace, myCredit } from '@/lib/dates';
-import { formatNaira as formatMoney } from '@/lib/payments';
+import { formatMoney } from '@/lib/payments';
 import { errorMessage, supabase } from '@/lib/supabase';
 import { fonts, space, useTheme } from '@/lib/theme';
 import type { DateDeposit, DatePlan, MatchSummary } from '@/lib/types';
 
 const OPEN: DatePlan['status'][] = ['proposed', 'accepted', 'confirmed'];
-/** Deposit choices in kobo (₦2,000 – ₦20,000). */
-const AMOUNTS = [200000, 300000, 500000, 1000000, 2000000];
+/** Deposit choices in cents ($2 – $10). */
+const AMOUNTS = [200, 300, 500, 1000];
 const TIMES = [12, 15, 18, 19, 20, 21];
 
 function dayOptions() {
@@ -48,7 +48,7 @@ export default function DateScreen() {
   const [place, setPlace] = useState('');
   const [day, setDay] = useState(1);
   const [hour, setHour] = useState(19);
-  const [amount, setAmount] = useState(300000);
+  const [amount, setAmount] = useState(300);
   const { pay, prompt } = useCheckout();
 
   const load = useCallback(
@@ -331,7 +331,7 @@ export default function DateScreen() {
                     <Chip key={a} label={formatMoney(a)} selected={amount === a} onPress={() => setAmount(a)} />
                   ))}
                 </View>
-                <Muted>New accounts can use up to ₦5,000 for their first 30 days. Meet somewhere public.</Muted>
+                <Muted>New accounts can use up to $5 for their first 30 days. Meet somewhere public.</Muted>
                 <Button title="Propose date" onPress={propose} loading={busy} disabled={!place.trim()} />
               </View>
             )}

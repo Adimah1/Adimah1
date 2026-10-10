@@ -45,7 +45,7 @@ freezes accounts, with in-app appeals. Government ID + liveness unlocks money fe
 thresholds and fallbacks: [`docs/SECURITY.md`](docs/SECURITY.md).
 
 **Show-up deposits** — matched, ID-verified people can plan a date where both pay the same deposit
-(₦2,000–₦20,000) through Paystack; checking in at the venue refunds both, a no-show's deposit becomes
+($2–$10) through Paystack; checking in at the venue refunds both, a no-show's deposit becomes
 credit for the person who came. Money never moves between users.
 
 **Safety** — panic button (blocks, deletes the chat, texts your emergency contact your location), report (with reasons) and block from any profile or chat; blocking is symmetric and
@@ -135,15 +135,16 @@ the app's `.env`.
 
 ### 3. Paystack (payments)
 
-All prices are in naira and every payment goes through Paystack's checkout page; the app holds no keys.
+All prices are in US dollars and every payment goes through Paystack's checkout page; the app holds no keys.
+USD has to be enabled on your Paystack account (ask Paystack support if it isn't offered under Settings).
 
-1. In the Paystack dashboard, create a **Plan** for LushDate+ (Products → Plans, e.g. ₦2,500 monthly) and
+1. In the Paystack dashboard, create a **Plan** for LushDate+ (Products → Plans, currency USD, e.g. $4.99 monthly) and
    copy its code (`PLN_…`) into `PAYSTACK_PLUS_PLAN`.
 2. Copy your **secret key** (Settings → API Keys & Webhooks) into `PAYSTACK_SECRET_KEY`. Use the test key
    (`sk_test_…`) while testing.
 3. Set the **Webhook URL** on the same page to
    `https://<project-ref>.supabase.co/functions/v1/paystack-webhook`.
-4. Optional: `PAYSTACK_BOOST_PRICE` (in kobo, default `100000` = ₦1,000).
+4. Optional: `PAYSTACK_BOOST_PRICE` (in cents, default `99` = $0.99).
 
 People add an email for receipts the first time they pay. Paystack confirms each payment to the server,
 and only then does LushDate+ switch on, a boost start or a deposit count. Deposits are refunded through

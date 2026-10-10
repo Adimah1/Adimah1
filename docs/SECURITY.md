@@ -114,7 +114,7 @@ once "the date/service happened". That was not built:
 **Show-up deposits** keep the anti-flake benefit without either problem:
 
 1. Two matched, ID-verified people agree on a public place, a time 1 hour to 6 days ahead, and a deposit
-   (₦2,000–₦5,000 for accounts under 30 days, up to ₦20,000 after).
+   ($2–$5 for accounts under 30 days, up to $10 after).
 2. Each pays the **same** deposit through Paystack. LushDate holds it; credit from a previous date can
    cover it. The amount always comes from the server, and a payment for the wrong amount or currency, or
    one that arrives after the date was cancelled, is refunded automatically.

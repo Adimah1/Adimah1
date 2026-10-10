@@ -64,13 +64,13 @@ export function matchPreview(match: MatchSummary, myId: string): string {
   }
 }
 
-/** ₦ from kobo, e.g. 250000 → "₦2,500". */
-export function formatNaira(kobo: number): string {
-  const naira = kobo / 100;
-  const whole = Math.trunc(naira)
+/** Dollars from cents, e.g. 499 → "$4.99", 500 → "$5". */
+export function formatMoney(cents: number): string {
+  const dollars = Math.trunc(cents / 100)
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  return `₦${whole}${Number.isInteger(naira) ? '' : (naira % 1).toFixed(2).slice(1)}`;
+  const rest = cents % 100;
+  return `$${dollars}${rest === 0 ? '' : `.${String(rest).padStart(2, '0')}`}`;
 }
 
 const INTERVALS: Record<string, string> = {

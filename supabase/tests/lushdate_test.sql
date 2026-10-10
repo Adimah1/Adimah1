@@ -443,18 +443,18 @@ reset role;
 grant select on pq to authenticated, service_role;
 
 select test.login(:M); set role authenticated;
-select test.throws('select public.propose_date((select id from mr), ''Cafe'', 40.7, -74.0, now() + interval ''1 day'', 300000)',
+select test.throws('select public.propose_date((select id from mr), ''Cafe'', 40.7, -74.0, now() + interval ''1 day'', 300)',
   'Verify your ID', 'date deposits require ID verification');
 reset role;
 
 select test.login(:P); set role authenticated;
-select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''10 minutes'', 300000)',
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''10 minutes'', 300)',
   'between 1 hour and 6 days', 'dates must be 1 hour to 6 days away');
-select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''1 day'', 1000000)',
-  '₦5,000', 'new accounts have a lower deposit limit');
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''1 day'', 800)',
+  '\$5 for', 'new accounts have a lower deposit limit');
 create temp table plan1 as
-  select public.propose_date((select id from pq), 'Blue Bottle Coffee', 40.7410, -73.9897, now() + interval '1 day', 400000) as id;
-select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''2 days'', 300000)',
+  select public.propose_date((select id from pq), 'Blue Bottle Coffee', 40.7410, -73.9897, now() + interval '1 day', 400) as id;
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''2 days'', 300)',
   'already a date', 'one open date per chat');
 reset role;
 grant select on plan1 to authenticated, service_role;
@@ -464,9 +464,9 @@ select test.ok(public.respond_date((select id from plan1), true) = 'accepted', '
 reset role;
 
 set role service_role;
-select test.ok(public.deposit_due(:P, (select id from plan1)) = 400000, 'deposit amount due');
-select public.record_deposit_intent((select id from plan1), :P, 'pi_p1', 400000);
-select public.record_deposit_intent((select id from plan1), :Q, 'pi_q1', 400000);
+select test.ok(public.deposit_due(:P, (select id from plan1)) = 400, 'deposit amount due');
+select public.record_deposit_intent((select id from plan1), :P, 'pi_p1', 400);
+select public.record_deposit_intent((select id from plan1), :Q, 'pi_q1', 400);
 select public.mark_deposit('pi_p1', 'authorized');
 reset role;
 select test.ok((select status from public.date_plans where id = (select id from plan1)) = 'accepted', 'one deposit is not enough');
@@ -485,12 +485,12 @@ select test.ok((select id from plan1) in (select public.plans_to_settle()), 'pas
 select test.ok(public.settlement_for((select id from plan1)) = '{"outcome": "no_show", "release": ["pi_p1"], "capture": ["pi_q1"]}'::jsonb,
   'the no-show is charged, the person who came is released');
 select test.ok(public.finish_settlement((select id from plan1)) = 'no_show', 'settlement recorded');
-select test.ok(public.credit_balance(:P) = 400000, 'the person who came gets the no-show amount as credit');
+select test.ok(public.credit_balance(:P) = 400, 'the person who came gets the no-show amount as credit');
 select test.ok(exists (select 1 from public.risk_events where user_id = :Q and kind = 'no_show'), 'no-shows add risk');
 reset role;
 
 select test.login(:Q); set role authenticated;
-select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''2 days'', 300000)',
+select test.throws('select public.propose_date((select id from pq), ''Cafe'', 40.7, -74.0, now() + interval ''2 days'', 300)',
   'aren’t available', 'risky accounts (after a no-show and a spoofed check-in) lose deposit access');
 reset role;
 set role service_role;
@@ -499,7 +499,7 @@ reset role;
 
 select test.login(:P); set role authenticated;
 create temp table plan2 as
-  select public.propose_date((select id from pq), 'Park', 40.7410, -73.9897, now() + interval '2 days', 300000) as id;
+  select public.propose_date((select id from pq), 'Park', 40.7410, -73.9897, now() + interval '2 days', 300) as id;
 reset role;
 grant select on plan2 to authenticated, service_role;
 select test.login(:Q); set role authenticated; select public.respond_date((select id from plan2), true); reset role;
@@ -508,12 +508,12 @@ select test.ok(public.deposit_due(:P, (select id from plan2)) = 0, 'credit cover
 select public.deposit_with_credit((select id from plan2), :P);
 reset role;
 select test.login(:P); set role authenticated;
-select test.ok(public.my_credit_balance() = 100000, 'credit is spent on the deposit');
+select test.ok(public.my_credit_balance() = 100, 'credit is spent on the deposit');
 select public.cancel_date((select id from plan2));
 reset role;
 set role service_role;
 select public.finish_settlement((select id from plan2));
-select test.ok(public.credit_balance(:P) = 400000, 'cancelling returns credit');
+select test.ok(public.credit_balance(:P) = 400, 'cancelling returns credit');
 reset role;
 
 select test.login(:M); set role authenticated;
@@ -523,28 +523,28 @@ reset role;
 -- ------------------------------------------------------------ paystack payments
 set role service_role;
 insert into public.billing_customers (user_id, email) values (:M, 'm@example.com');
-insert into public.payments (reference, user_id, kind, amount) values ('ld_plus_1', :M, 'plus', 250000);
-select test.ok(public.payment_succeeded('ld_plus_1', 250000, 'NGN', 'CUS_m', 30) = 'plus', 'a paid subscription unlocks LushDate+');
-select test.ok(public.payment_succeeded('ld_plus_1', 250000, 'NGN', 'CUS_m', 30) = 'duplicate', 'a payment is only applied once');
+insert into public.payments (reference, user_id, kind, amount) values ('ld_plus_1', :M, 'plus', 499);
+select test.ok(public.payment_succeeded('ld_plus_1', 499, 'USD', 'CUS_m', 30) = 'plus', 'a paid subscription unlocks LushDate+');
+select test.ok(public.payment_succeeded('ld_plus_1', 499, 'USD', 'CUS_m', 30) = 'duplicate', 'a payment is only applied once');
 reset role;
 select test.ok((select expires_at from public.entitlements where user_id = :M) between now() + interval '30 days' and now() + interval '32 days',
   'LushDate+ runs for the plan period plus a day of grace');
 select test.ok((select customer_code from public.billing_customers where user_id = :M) = 'CUS_m', 'the Paystack customer is linked');
 set role service_role;
-select test.ok(public.record_renewal('CUS_m', 'T_renew_1', 250000, 'NGN', 30) = 'plus', 'renewals charged by Paystack extend LushDate+');
-select test.ok(public.record_renewal('CUS_nobody', 'T_x', 250000, 'NGN', 30) = 'unknown', 'renewals for unknown customers are ignored');
-insert into public.payments (reference, user_id, kind, amount) values ('ld_boost_1', :M, 'boost', 100000);
-select test.ok(public.payment_succeeded('ld_boost_1', 50000, 'NGN', null, 30) = 'refund', 'an underpaid charge is refunded, not honoured');
-insert into public.payments (reference, user_id, kind, amount) values ('ld_boost_2', :M, 'boost', 100000);
-select test.ok(public.payment_succeeded('ld_boost_2', 100000, 'GHS', null, 30) = 'refund', 'a charge in the wrong currency is refunded');
-insert into public.payments (reference, user_id, kind, amount) values ('ld_boost_3', :M, 'boost', 100000);
-select test.ok(public.payment_succeeded('ld_boost_3', 100000, 'NGN', null, 30) = 'boost', 'a paid boost starts');
-select test.ok(public.payment_succeeded('ld_nope', 100000, 'NGN', null, 30) = 'unknown', 'unknown references do nothing');
-select public.record_deposit_intent((select id from plan2), :Q, 'ld_dep_late', 300000);
-insert into public.payments (reference, user_id, kind, plan_id, amount) values ('ld_dep_late', :Q, 'deposit', (select id from plan2), 300000);
-select test.ok(public.payment_succeeded('ld_dep_late', 300000, 'NGN', null, 30) = 'refund', 'a deposit paid after the date was cancelled is refunded');
+select test.ok(public.record_renewal('CUS_m', 'T_renew_1', 499, 'USD', 30) = 'plus', 'renewals charged by Paystack extend LushDate+');
+select test.ok(public.record_renewal('CUS_nobody', 'T_x', 499, 'USD', 30) = 'unknown', 'renewals for unknown customers are ignored');
+insert into public.payments (reference, user_id, kind, amount) values ('ld_boost_1', :M, 'boost', 99);
+select test.ok(public.payment_succeeded('ld_boost_1', 50, 'USD', null, 30) = 'refund', 'an underpaid charge is refunded, not honoured');
+insert into public.payments (reference, user_id, kind, amount) values ('ld_boost_2', :M, 'boost', 99);
+select test.ok(public.payment_succeeded('ld_boost_2', 99, 'NGN', null, 30) = 'refund', 'a charge in the wrong currency is refunded');
+insert into public.payments (reference, user_id, kind, amount) values ('ld_boost_3', :M, 'boost', 99);
+select test.ok(public.payment_succeeded('ld_boost_3', 99, 'USD', null, 30) = 'boost', 'a paid boost starts');
+select test.ok(public.payment_succeeded('ld_nope', 99, 'USD', null, 30) = 'unknown', 'unknown references do nothing');
+select public.record_deposit_intent((select id from plan2), :Q, 'ld_dep_late', 300);
+insert into public.payments (reference, user_id, kind, plan_id, amount) values ('ld_dep_late', :Q, 'deposit', (select id from plan2), 300);
+select test.ok(public.payment_succeeded('ld_dep_late', 300, 'USD', null, 30) = 'refund', 'a deposit paid after the date was cancelled is refunded');
 select public.payment_refunded('ld_dep_late');
-insert into public.payments (reference, user_id, kind, amount) values ('ld_plus_fail', :M, 'plus', 250000);
+insert into public.payments (reference, user_id, kind, amount) values ('ld_plus_fail', :M, 'plus', 499);
 select public.payment_failed('ld_plus_fail');
 reset role;
 select test.ok((select expires_at from public.entitlements where user_id = :M) > now() + interval '60 days', 'a renewal adds a full period');
@@ -556,7 +556,7 @@ select test.ok((select status from public.payments where reference = 'ld_plus_fa
 select test.login(:M); set role authenticated;
 select test.ok((select count(*) from public.payments) = 6, 'people can see their own payments');
 select test.throws('select * from public.billing_customers', 'permission denied', 'billing details are private');
-select test.throws('select public.payment_succeeded(''ld_plus_fail'', 250000, ''NGN'', null, 30)', 'permission denied', 'people cannot mark their own payments as paid');
+select test.throws('select public.payment_succeeded(''ld_plus_fail'', 499, ''USD'', null, 30)', 'permission denied', 'people cannot mark their own payments as paid');
 reset role;
 select test.login(:Q); set role authenticated;
 select test.ok((select count(*) from public.payments) = 1, 'and nobody else’s');

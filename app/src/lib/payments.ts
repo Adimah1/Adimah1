@@ -3,7 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { supabase } from './supabase';
 
-export { formatNaira, intervalLabel } from './format';
+export { formatMoney, intervalLabel } from './format';
 
 /** Where the paystack-return function sends the browser after checkout. */
 const RETURN_URL = 'lushdate://paystack';

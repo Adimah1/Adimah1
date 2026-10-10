@@ -1,13 +1,13 @@
 // Paystack REST client and the payment logic shared by the checkout,
 // verify and webhook functions. Secrets: PAYSTACK_SECRET_KEY,
 // PAYSTACK_PLUS_PLAN (plan code, e.g. PLN_xxx), optional PAYSTACK_BOOST_PRICE
-// (kobo, default ₦1,000).
+// (US cents, default 99 = $0.99). The Paystack account needs USD enabled.
 
 import { admin } from './admin.ts';
 export { verifyPaystackSignature } from './crypto.ts';
 
-export const CURRENCY = 'NGN';
-export const BOOST_PRICE = Number(Deno.env.get('PAYSTACK_BOOST_PRICE') ?? 100000);
+export const CURRENCY = 'USD';
+export const BOOST_PRICE = Number(Deno.env.get('PAYSTACK_BOOST_PRICE') ?? 99);
 const PLUS_PLAN = Deno.env.get('PAYSTACK_PLUS_PLAN') ?? '';
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 

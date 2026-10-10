@@ -1,4 +1,4 @@
-import { ageFrom, distanceLabel, formatNaira, matchPreview, parseBirthdate, timeAgo, toE164 } from './format';
+import { ageFrom, distanceLabel, formatMoney, matchPreview, parseBirthdate, timeAgo, toE164 } from './format';
 import type { MatchSummary } from './types';
 
 describe('ageFrom', () => {
@@ -72,11 +72,12 @@ describe('matchPreview', () => {
   });
 });
 
-describe('formatNaira', () => {
-  it('formats kobo as naira with thousands separators', () => {
-    expect(formatNaira(250000)).toBe('₦2,500');
-    expect(formatNaira(2000000)).toBe('₦20,000');
-    expect(formatNaira(100050)).toBe('₦1,000.50');
-    expect(formatNaira(99)).toBe('₦0.99');
+describe('formatMoney', () => {
+  it('formats cents as dollars', () => {
+    expect(formatMoney(499)).toBe('$4.99');
+    expect(formatMoney(500)).toBe('$5');
+    expect(formatMoney(99)).toBe('$0.99');
+    expect(formatMoney(5)).toBe('$0.05');
+    expect(formatMoney(123400)).toBe('$1,234');
   });
 });
